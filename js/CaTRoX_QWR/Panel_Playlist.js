@@ -3873,7 +3873,7 @@ function Header(parent, x, y, w, h, idx) {
 
             //---> SUB TITLE
             if (grouping_handler.get_sub_title_query()) {
-                var album_text = _.tf(grouping_handler.get_sub_title_query(), metadb);
+                var album_text = _.tf(grouping_handler.get_sub_title_query(), metadb) || _.tf('%directoryname%', metadb);
                 if (album_text) {
                     var album_h = part_h;
                     var album_y = part_h;
@@ -4506,12 +4506,10 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
             title_color = g_pl_colors.title_playing;
             title_font = g_pl_fonts.title_playing;
             count_color = g_pl_colors.count_playing;
+            title_artist_color = title_color;
 
             var bg_color = this.is_selected() ? col.accent : col.darkAccent;
             gr.FillSolidRect(this.x, this.y, this.w, this.h, bg_color);
-            if (colorDistance(bg_color, title_artist_color) < 150) {
-                title_artist_color = title_color;
-            }
         }
 
         //--->
@@ -4580,7 +4578,7 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
                 bitrate_text = _.tf('[%bitrate%]', this.metadb);
             }
 
-            var bitrate_w = is_4k ? 40 : 20;
+            var bitrate_w = is_4k ? 60 : 30;
             if (bitrate_text) {
                 var bitrate_x = this.x + this.w - bitrate_w - right_pad;
 
@@ -4596,7 +4594,7 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
                 );
                 testRect && gr.DrawRect(bitrate_x, this.y - 1, bitrate_w, this.h, 1, RGBA(155, 155, 255, 250));
             }
-            right_pad += length_w;
+            right_pad += bitrate_w;
         }
 
         //---> BPM
@@ -4605,7 +4603,7 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
                 bpm_text = _.tf('[%bpm%]', this.metadb);
             }
 
-            var bpm_w = is_4k ? 40 : 20;
+            var bpm_w = is_4k ? 60 : 30;
             if (bpm_text) {
                 var bpm_x = this.x + this.w - bpm_w - right_pad;
 
@@ -6640,7 +6638,7 @@ GroupingHandler.Settings = function () {
  * @param {string} description
  * @param {?string=} [group_query='']
  * @param {?string=} [title_query='[%album artist%]']
- * @param {?string=} [sub_title_query="[%album%[ '('%albumsubtitle%')']][ - '['%edition%']']"]
+ * @param {?string=} [sub_title_query="[$if(%album%,%album%[ '('%albumsubtitle%')']][ - '['%edition%']',%directoryname%)"]
  * @param {object=}  [options={}]
  * @param {boolean=} [options.show_date=false]
  * @param {boolean=} [options.show_cd=false]
@@ -6657,7 +6655,9 @@ GroupingHandler.Settings.Group = function (name, description, group_query, title
     /** @type {string} */
     this.title_query = !_.isNil(title_query) ? title_query : '[%album artist%]';
     /** @type {string} */
-    this.sub_title_query = !_.isNil(sub_title_query) ? sub_title_query : "[%album%[ '('%albumsubtitle%')']][ - '['%edition%']']";
+    this.sub_title_query = !_.isNil(sub_title_query)
+        ? sub_title_query
+        : "$if(%album%,%album%[ '('%albumsubtitle%')']][ - '['%edition%']',%directoryname%)";
     /** @type {boolean} */
     this.show_date = !!(options && options.show_date);
     /** @type {boolean} */

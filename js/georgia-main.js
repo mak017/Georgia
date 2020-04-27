@@ -61,6 +61,9 @@ function createFonts() {
     ft.album_substitle_lrg = font(fontBold, 36, g_font_style.italic);
     ft.album_substitle_med = font(fontBold, 32, g_font_style.italic);
     ft.album_substitle_sml = font(fontBold, 28, g_font_style.italic);
+    ft.album_artist_lrg = font(fontThin, 30, 0);
+    ft.album_artist_med = font(fontThin, 26, 0);
+    ft.album_artist_sml = font(fontThin, 22, 0);
     ft.title_lrg = font(fontThin, 34, 0);
     ft.title_med = font(fontThin, 30, 0);
     ft.title_sml = font(fontThin, 26, 0);
@@ -698,6 +701,29 @@ function draw_ui(gr) {
             }
 
             top += geo.timeline_h + (is_4k ? 20 : 12);
+
+            if (str.album_artist && str.album_artist !== str.artist) {
+                var font_array = [ft.album_artist_lrg, ft.album_artist_med, ft.album_artist_sml];
+                var ft_album_artist = chooseFontForWidth(gr, text_width, str.album_artist, font_array, 2);
+                var txtRec = gr.MeasureString(str.album_artist, ft_album_artist, 0, 0, text_width, wh);
+                var numLines = txtRec.lines;
+                var lineHeight = txtRec.Height / numLines;
+                if (numLines > 2) {
+                    numLines = 2;
+                }
+                height = lineHeight * numLines;
+                gr.DrawString(
+                    str.album_artist,
+                    ft_album_artist,
+                    col.info_text,
+                    textLeft,
+                    top,
+                    text_width,
+                    height,
+                    g_string_format.trim_ellipsis_word
+                );
+                top += height + (is_4k ? 16 : 8);
+            }
 
             if (str.album) {
                 var font_array = [ft.album_lrg, ft.album_med, ft.album_sml];
@@ -2056,6 +2082,7 @@ function on_metadb_changed(handle_list, fromhook) {
             str.title = title + original_artist;
             str.title_lower = '  ' + title;
             str.original_artist = original_artist;
+            str.album_artist = $('[%album artist%]');
             str.artist = artist;
             str.year = $('[$year($if3(%original release date%,%originaldate%,%date%,%fy_upload_date%))]');
             str.album = $("[%album%][ '['" + tf.album_trans + "']']");
@@ -2080,7 +2107,8 @@ function on_metadb_changed(handle_list, fromhook) {
             }
             str.trackInfo = $(codec + '[ | %replaygain_album_gain%]');
 
-            str.disc = fb.TitleFormat(tf.disc).Eval();
+            // str.disc = fb.TitleFormat(tf.disc).Eval();
+            str.disc = $('$ifgreater(%totaldiscs%,1,CD $num(%discnumber%,1)/%totaldiscs%,)');
 
             h = Math.floor(fb.PlaybackLength / 3600);
             m = Math.floor((fb.PlaybackLength % 3600) / 60);
@@ -3053,7 +3081,7 @@ function ResizeArtwork(resetCDPosition) {
     if (albumart && albumart.Width && albumart.Height) {
         // Size for big albumart
         var album_scale = Math.min(
-            (displayLibrary ? 0.47 * ww : 0.64 * ww) / albumart.Width,
+            (displayLibrary ? 0.47 * ww : 0.2905581637976004 * ww) / albumart.Width,
             (wh - geo.top_art_spacing - geo.lower_bar_h - 32) / albumart.Height
         );
         if (displayLibrary) {
@@ -3062,7 +3090,7 @@ function ResizeArtwork(resetCDPosition) {
             // when using a roughly 4:3 display the album art crowds, so move it slightly off center
             xCenter = 0.56 * ww; // TODO: check if this is still needed?
         } else {
-            xCenter = 0.29 * ww;
+            xCenter = 0.285 * ww;
             art_off_center = false;
             if (album_scale == (0.64 * ww) / albumart.Width) {
                 xCenter += 0.1 * ww;

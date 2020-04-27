@@ -71,7 +71,7 @@ tf.add_properties({
     album_subtitle: ['Tag Fields: Album Subtitle', '%albumsubtitle%'],
     artist: ['Tag Fields: Artist String', '$if3(%artist%,%composer%,%performer%,%album artist%)'],
     artist_country: ['Tag Fields: Country', '%artistcountry%'], // we call meta_num(artistcountry) so don't wrap this in % signs
-    disc: ['Tag Fields: Disc String', '$ifgreater(%totaldiscs%,1,CD %discnumber%/%totaldiscs%,)'],
+    disc: ['Tag Fields: Disc String', '$ifgreater(%totaldiscs%,1,CD $num(%discnumber%,1)/%totaldiscs%,)'],
     disc_subtitle: ['Tag Fields: Disc Subtitle', '%discsubtitle%'],
     year: [
         'Tag Fields: Year',
@@ -154,21 +154,24 @@ tf.grid = [
         label: 'Label',
         val: '$if2(%label%,[%publisher%])'
     },
-    {label: 'Catalog #', val: '[%catalognumber%]'},
+    {
+        label: 'Catalog #',
+        val: '$if3(%catalognumber%,%catalognumber%,%cat#%,%cat#%,%catalog #%,%catalog #%,%catalog%,%catalog%,%cataloguenumber%,%cataloguenumber%,)'
+    },
     {
         label: 'Track',
-        val: '[$num(%tracknumber%,1)][/$num(%totaltracks%,1)]$ifgreater(%totaldiscs%,1,   CD $num(%discnumber%,1)/$num(%totaldiscs%,1),)'
-        // "$if(%tracknumber%,$num(%tracknumber%,1)$if(%totaltracks%,/$num(%totaltracks%,1))$ifgreater(%totaldiscs%,1,   CD %discnumber%/$num(%totaldiscs%,1),)",
+        val:
+            '$if(%tracknumber%,$num(%tracknumber%,1)[/$num(%totaltracks%,1)],$ifgreater(%totaldiscs%,1,-,))$ifgreater(%totaldiscs%,1,   CD $num(%discnumber%,1)/$num(%totaldiscs%,1),)'
     },
     {label: 'Genre', val: "[$replace(%genre%,', ',' • ')]"},
     {label: 'Style', val: "[$replace(%style%,', ',' • ')]"},
     {label: 'BPM', val: '[%bpm%]'},
     {label: 'Release', val: '[%release%]'},
     {
-        label: 'Codec / Bitrate',
-        val: '[%codec%][ $info(codec_profile)][ / %bitrate% kbps]'
+        label: 'Codec',
+        val: '$if($strcmp(%codec%,Musepack),mpc,%codec%)[ $info(codec_profile)][ / $info(bitrate) kbps]'
     },
-    {label: 'Added', val: '[' + tf.added + ']', age: true},
+    // {label: 'Added', val: '[' + tf.added + ']', age: true},
     {label: 'Last Played', val: '[' + tf.last_played + ']', age: true},
     {
         label: 'Hotness',
@@ -198,12 +201,31 @@ tf.lyrics = '[$if3(%LYRICS%,%LYRIC%,%UNSYNCED LYRICS%,%UNSYNCED LYRIC%)]';
 // GLOB PICTURES
 tf.glob_paths = [
     // simply add, change or re-order entries as needed
+    '$replace(%path%,%filename_ext%,)cover.gif',
+    '$replace(%path%,%filename_ext%,)cover.jpg',
+    '$replace(%path%,%filename_ext%,)cover.jpeg',
+    '$replace(%path%,%filename_ext%,)cover.png',
+    '$replace(%path%,%filename_ext%,)*front*.jpg',
+    '$replace(%path%,%filename_ext%,)*front*.jpeg',
+    '$replace(%path%,%filename_ext%,)*front.png',
     '$replace(%path%,%filename_ext%,)folder*.jpg',
     '$replace(%path%,%filename_ext%,)folder*.jpeg',
     '$replace(%path%,%filename_ext%,)folder*.png',
-    '$replace(%path%,%filename_ext%,)*.jpg',
-    '$replace(%path%,%filename_ext%,)*.jpeg',
-    '$replace(%path%,%filename_ext%,)*.png',
+    '$replace(%path%,%filename_ext%,)%filename%.jpg',
+    '$replace(%path%,%filename_ext%,)%album%.jpg',
+    '$replace(%path%,%filename_ext%,)00*.jpg',
+    '$replace(%path%,%filename_ext%,)00*.jpeg',
+    '$replace(%path%,%filename_ext%,)00*.gif',
+    '$replace(%path%,%filename_ext%,)00*.png',
+    '$replace(%path%,%filename_ext%,)*big.jpg',
+    '$replace(%path%,%filename_ext%,)*big.jpeg',
+    '$replace(%path%,%filename_ext%,)%directoryname%.jpeg',
+    '$replace(%path%,%filename_ext%,)%directoryname%.jpg',
+    '$replace(%path%,%filename_ext%,)R-*.jpg',
+    '$replace(%path%,%filename_ext%,)R-*.jpeg',
+    '$replace(%path%,%filename_ext%,)R-*.gif',
+    '$replace(%path%,%filename_ext%,)CS*.jpg',
+    '$replace(%path%,%filename_ext%,)CS*.jpeg',
     '$replace(%path%,%directoryname%\\%filename_ext%,)folder*' // all folder images in parent directory
 ];
 
