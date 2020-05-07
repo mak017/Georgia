@@ -64,9 +64,9 @@ function createFonts() {
     ft.album_artist_lrg = font(fontThin, 30, 0);
     ft.album_artist_med = font(fontThin, 26, 0);
     ft.album_artist_sml = font(fontThin, 22, 0);
-    ft.title_lrg = font(fontThin, 34, 0);
-    ft.title_med = font(fontThin, 30, 0);
-    ft.title_sml = font(fontThin, 26, 0);
+    ft.title_lrg = font(fontThin, 32, 0);
+    ft.title_med = font(fontThin, 28, 0);
+    ft.title_sml = font(fontThin, 24, 0);
     ft.tracknum_lrg = font(fontLight, 34, g_font_style.bold);
     ft.tracknum_med = font(fontLight, 30, g_font_style.bold);
     ft.tracknum_sml = font(fontLight, 26, g_font_style.bold);
@@ -442,6 +442,7 @@ function draw_ui(gr) {
             themeColorSet = true;
         }
     }
+    var gridHeight = wh - albumart_size.y - geo.lower_bar_h - 32;
     gr.FillSolidRect(0, geo.top_bg_h, ww, wh - geo.top_bg_h, col.bg);
     gr.FillSolidRect(0, 0, ww, geo.top_bg_h, col.menu_bg);
     if ((fb.IsPaused || fb.IsPlaying) && !albumart && cdart) {
@@ -486,6 +487,13 @@ function draw_ui(gr) {
                 StringFormat(StringAlignment.Far)
             );
         }
+    }
+
+    if (fb.IsPlaying && (albumart || !cdart)) {
+        gr.SetSmoothingMode(SmoothingMode.None);
+        gr.FillSolidRect(0, albumart_size.y, albumart_size.x + albumart_size.w, gridHeight, col.info_bg);
+        gr.DrawRect(-1, albumart_size.y, albumart_size.x + albumart_size.w, gridHeight - 1, 1, col.accent);
+        gr.SetSmoothingMode(SmoothingMode.AntiAliasGridFit);
     }
 
     // BIG ALBUMART
@@ -583,12 +591,6 @@ function draw_ui(gr) {
                 if (showExtraDrawTiming) drawCD.Print();
             }
         }
-    }
-    if (fb.IsPlaying && (albumart || !cdart)) {
-        gr.SetSmoothingMode(SmoothingMode.None);
-        gr.FillSolidRect(0, albumart_size.y, albumart_size.x, albumart_size.h, col.info_bg); // info bg -- must be drawn after shadow
-        gr.DrawRect(-1, albumart_size.y, albumart_size.x, albumart_size.h - 1, 1, col.accent);
-        gr.SetSmoothingMode(SmoothingMode.AntiAliasGridFit);
     }
     if (fb.IsPaused) {
         pauseBtn.draw(gr);
@@ -858,7 +860,7 @@ function draw_ui(gr) {
                             break;
                     }
                     txtRec = gr.MeasureString(value, grid_val_ft, 0, 0, col2_width, wh);
-                    if (top + txtRec.Height < albumart_size.y + albumart_size.h) {
+                    if (top + txtRec.Height < albumart_size.y + gridHeight) {
                         var border_w = is_4k ? 1 : 0.5;
                         cell_height = txtRec.Height + 5;
                         if (dropShadow) {
@@ -2927,6 +2929,7 @@ function calcDateRatios(dontUpdateLastPlayed, currentLastPlayed) {
     playedTimesRatios = [];
     var added = toTime($('$if2(%added_enhanced%,%added%)'));
     var first_played = toTime($('$if2(%first_played_enhanced%,%first_played%)'));
+    added > first_played && (added = first_played);
     var last_played = $('$if2(%last_played_enhanced%,%last_played%)');
     var today = dateToYMD(newDate);
     if (dontUpdateLastPlayed && $date(last_played) === today) {

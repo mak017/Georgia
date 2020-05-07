@@ -156,7 +156,8 @@ tf.grid = [
     },
     {
         label: 'Catalog #',
-        val: '$if3(%catalognumber%,%catalognumber%,%cat#%,%cat#%,%catalog #%,%catalog #%,%catalog%,%catalog%,%cataloguenumber%,%cataloguenumber%,)'
+        val:
+            '$if3(%catalognumber%,%catalognumber%,%cat#%,%cat#%,%catalog #%,%catalog #%,%catalog%,%catalog%,%cataloguenumber%,%cataloguenumber%,%labelno%,%labelno%,%discogs_catalog%,%discogs_catalog%,)'
     },
     {
         label: 'Track',

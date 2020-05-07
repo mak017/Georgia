@@ -150,6 +150,7 @@ g_pl_colors.line_selected = g_theme.colors.panel_line_selected;
 g_pl_colors.title_selected = RGB(170, 172, 174);
 // g_pl_colors.title_playing = RGB(255, 165, 0);
 g_pl_colors.title_playing = RGB(255, 255, 255);
+g_pl_colors.title_playing_alt = RGB(0, 0, 0);
 g_pl_colors.title_normal = g_theme.colors.panel_text_normal;
 g_pl_colors.count_normal = RGB(120, 122, 124);
 g_pl_colors.count_selected = g_pl_colors.title_selected;
@@ -4506,10 +4507,14 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
             title_color = g_pl_colors.title_playing;
             title_font = g_pl_fonts.title_playing;
             count_color = g_pl_colors.count_playing;
-            title_artist_color = title_color;
 
             var bg_color = this.is_selected() ? col.accent : col.darkAccent;
             gr.FillSolidRect(this.x, this.y, this.w, this.h, bg_color);
+            if (colorDistance(bg_color, title_artist_color) < 128) {
+                title_color = g_pl_colors.title_playing_alt;
+                count_color = title_color;
+            }
+            title_artist_color = title_color;
         }
 
         //--->
@@ -4552,7 +4557,7 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
                 length_text = _.tf('[%length%]', this.metadb);
             }
 
-            var length_w = is_4k ? 80 : 50;
+            var length_w = is_4k ? 100 : 50;
             if (length_text) {
                 var length_x = this.x + this.w - length_w - right_pad;
 
