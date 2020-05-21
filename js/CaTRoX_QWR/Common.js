@@ -76,8 +76,10 @@ function trimArray(array, count, fromHead ){
         }
     }
 
-var MF_STRING = 0x00000000;
-var MF_GRAYED = 0x00000001;
+var MF_STRING   = 0x00000000;
+var MF_GRAYED   = 0x00000001;
+var MF_DISABLED = 0x00000002;
+var MF_POPUP    = 0x00000010;
 
 // Mask for mouse callbacks
 var MK_LBUTTON = 0x0001;
@@ -295,12 +297,8 @@ g_callbacks = {
     }
 };
 
+// TODO: why do these still exist?
 var g_theme = {};
-g_theme.name = 'Georgia';
-// g_theme.version = '4.2.1';
-// g_theme.folder_name = 'CaTRoX';
-// g_theme.script_folder = 'themes\\' + g_theme.folder_name + '\\Scripts\\';
-
 g_theme.colors = {};
 g_theme.colors.pss_back = RGB(25, 25, 25);
 g_theme.colors.panel_back = RGB(30, 30, 30);
@@ -321,7 +319,7 @@ var g_string_format = {
 
     align_center: 0x11000000,
 
-    trim_none:          0x00100000,
+    trim_none:          0x00000000,
     trim_char:          0x00100000,
     trim_word:          0x00200000,
     trim_ellipsis_char: 0x00300000,
@@ -649,9 +647,6 @@ var qwr_utils = {
             case 'googleimages':
                 site = (search_term ? 'http://images.google.com/images?hl=en&q=' + search_term + '&ie=utf-8' : null);
                 break;
-            case 'ecover':
-                site = (search_term || album ? 'http://ecover.to/?Module=ExtendedSearch&SearchString=' + search_term + '+' + album + '&ie=utf-8' : null);
-                break;
             case 'wikipedia':
                 site = (artist ? 'http://en.wikipedia.org/wiki/' + artist.replace(/\+/g, '_') : null);
                 break;
@@ -672,7 +667,7 @@ var qwr_utils = {
             return;
         }
 
-        _.run(site);
+        _.runCmd(site);
     },
     MouseMoveSuppress:    function () {
         this.is_supressed = function (x, y, m) {

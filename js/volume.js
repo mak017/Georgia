@@ -148,7 +148,7 @@ function VolumeBtn() {
                     h = volume_bar.h;
  
                 var fillHeight = volume_bar.pos('h');
-                var lineThickness = is_4k ? 2 : 1;
+                var lineThickness = scaleForDisplay(1);
 
                 gr.FillSolidRect(x, y + p, w, h, col.bg);
                 gr.FillSolidRect(x, y + p + h - fillHeight, w, fillHeight, col.progress_fill);
@@ -230,7 +230,9 @@ function VolumeBtn() {
                     fb.VolumeDown();
                 }
             }
+            return true;
         }
+        return false;
     };
  
     this.on_mouse_leave = function () {
@@ -277,9 +279,9 @@ function VolumeBtn() {
      * @type {number}
      */
  
-    var volume_bar_w = is_4k ? 56 : 28;
+    var volume_bar_w = scaleForDisplay(28);
     var trace_pad = Math.min(volume_bar_w / 2);
-    var volume_bar_h = is_4k ? 360 : 180;
+    var volume_bar_h = scaleForDisplay(180);
     /**
      * @const
      * @type {number}
