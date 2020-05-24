@@ -14,9 +14,6 @@ g_script_list.push('Panel_Playlist.js');
 // Should be used only for default panel properties initialization
 var g_is_mini_panel = _.includes(window.name.toLowerCase(), 'mini');
 
-var g_component_playcount = utils.CheckComponent('foo_playcount');
-var g_component_utils = utils.CheckComponent('foo_utils');
-
 // Niceties:
 // TODO: grouping presets manager: other EsPlaylist grouping features - sorting, playlist association
 // Low priority:
@@ -35,14 +32,12 @@ g_properties.add_properties({
     show_album_art: ['user.header.this.art.show', true],
     auto_album_art: ['user.header.this.art.auto', false],
     show_group_info: ['user.header.info.show', true],
-    show_original_date: ['user.header.original_date.show', false],
     show_disc_header: ['user.header.disc_header.show', true],
 
     alternate_row_color: ['user.row.alternate_color', true],
     show_playcount: ['user.row.play_count.show', g_component_playcount],
     show_rating: ['user.row.rating.show', g_component_playcount && !g_is_mini_panel],
     use_rating_from_tags: ['user.row.rating.from_tags', false],
-    show_focused_row: ['user.row.focused.show', true],
     show_queue_position: ['user.row.queue_position.show', true],
 
     auto_colapse: ['user.header.collapse.auto', g_is_mini_panel],
@@ -81,32 +76,35 @@ var playlistFontsCreated = false;
 var playlist_geo = {};
 
 function createPlaylistFonts() {
+    var playlistSize = pref.font_size_playlist;
+    var headerSize = pref.font_size_playlist_header;
+
     function font(name, size, style) {
-        return gdi.Font(name, is_4k ? Math.min(size * 2) : size, style);
+        return gdi.Font(name, is_4k ? size * 2 : size, style);
     }
     g_pl_fonts = {
-        title_normal: font('Segoe Ui', 12),
-        title_selected: font('Segoe Ui', 12),
-        title_playing: font('Segoe Ui', 12),
+        title_normal: font('Segoe Ui', playlistSize),
+        title_selected: font('Segoe Ui', playlistSize),
+        title_playing: font('Segoe Ui', playlistSize),
 
-        artist_normal: font('Segoe Ui Semibold', 18),
-        artist_playing: font('Segoe Ui Semibold', 18, g_font_style.underline),
-        artist_normal_compact: font('Segoe Ui Semibold', 15),
-        artist_playing_compact: font('Segoe Ui Semibold', 15, g_font_style.underline),
+        artist_normal: font('Segoe Ui Semibold', headerSize + 3),
+        artist_playing: font('Segoe Ui Semibold', headerSize + 3, g_font_style.underline),
+        artist_normal_compact: font('Segoe Ui Semibold', headerSize),
+        artist_playing_compact: font('Segoe Ui Semibold', headerSize, g_font_style.underline),
+        album: font('Segoe Ui Semibold', headerSize),
+        date: font('Segoe UI Semibold', headerSize + 5, g_font_style.italic),
+        date_compact: font('Segoe UI Semibold', headerSize),
+        info: font('Segoe Ui', playlistSize - 1),
+        cover: font('Segoe Ui Semibold', playlistSize - 1),
 
-        playcount: font('Segoe Ui', 9),
-        album: font('Segoe Ui Semibold', 15),
-        date: font('Segoe UI Semibold', 20, g_font_style.italic),
-        date_compact: font('Segoe UI Semibold', 15),
-        info: font('Segoe Ui', 11),
-        cover: font('Segoe Ui Semibold', 11),
-        rating_not_set: font('Segoe Ui Symbol', 14),
-        rating_set: font('Segoe Ui Symbol', 16),
-        scrollbar: font('Segoe Ui Symbol', 15),
+        playcount: font('Segoe Ui', playlistSize - 3),
+        rating_not_set: font('Segoe Ui Symbol', playlistSize + 2),
+        rating_set: font('Segoe Ui Symbol', playlistSize + 4),
+        scrollbar: font('Segoe Ui Symbol', headerSize),
 
-        font_awesome: font('FontAwesome', 14),
+        font_awesome: font('FontAwesome', playlistSize + 2),
 
-        dummy_text: font('Segoe Ui', 16)
+        dummy_text: font('Segoe Ui', playlistSize + 1)
     };
 }
 
@@ -116,12 +114,12 @@ function rescalePlaylist() {
         return; // don't redo fonts
     }
     createPlaylistFonts();
-    playlist_geo.row_h = is_4k ? g_properties.row_h * 2 : g_properties.row_h;
-    playlist_geo.scrollbar_w = is_4k ? g_properties.scrollbar_w * 2 : g_properties.scrollbar_w;
-    playlist_geo.scrollbar_right_pad = is_4k ? g_properties.scrollbar_right_pad * 2 : g_properties.scrollbar_right_pad;
-    playlist_geo.scrollbar_top_pad = is_4k ? g_properties.scrollbar_top_pad * 2 : g_properties.scrollbar_top_pad;
-    playlist_geo.scrollbar_bottom_pad = is_4k ? g_properties.scrollbar_bottom_pad * 2 : g_properties.scrollbar_bottom_pad;
-    playlist_geo.list_bottom_pad = is_4k ? g_properties.list_bottom_pad * 2 : g_properties.list_bottom_pad;
+    playlist_geo.row_h = scaleForDisplay(g_properties.row_h);
+    playlist_geo.scrollbar_w = scaleForDisplay(g_properties.scrollbar_w);
+    playlist_geo.scrollbar_right_pad = scaleForDisplay(g_properties.scrollbar_right_pad);
+    playlist_geo.scrollbar_top_pad = scaleForDisplay(g_properties.scrollbar_top_pad);
+    playlist_geo.scrollbar_bottom_pad = scaleForDisplay(g_properties.scrollbar_bottom_pad);
+    playlist_geo.list_bottom_pad = scaleForDisplay(g_properties.list_bottom_pad);
 }
 
 var g_pl_colors = {};
@@ -382,17 +380,20 @@ function PlaylistPanel(x, y) {
     this.on_size = function (w, h) {
         rescalePlaylist();
         var x = Math.round(ww * 0.5);
-        var y = btns[30].y + btns[30].h + 10 + listTop;
+        var y = btns[30].y + btns[30].h + scaleForDisplay(16) + 2;
+        var lowerSpace = calcLowerSpace();
         var playlist_w = w - x;
-        var playlist_h = Math.max(0, h - geo.lower_bar_h - 10 - y - listBottom);
+        var playlist_h = Math.max(0, h - lowerSpace - scaleForDisplay(16) - y);
 
         this.h = playlist_h;
         this.w = playlist_w;
         this.x = x;
         this.y = y;
 
-        playlist_info_h = is_4k ? g_properties.row_h * 2 + 8 : g_properties.row_h + 4;
-        playlist_info_and_gap_h = playlist_info_h + (is_4k ? 4 : 2);
+        g_properties.row_h = Math.round(pref.font_size_playlist * 1.667);
+
+        playlist_info_h = scaleForDisplay(g_properties.row_h + 4);
+        playlist_info_and_gap_h = playlist_info_h + scaleForDisplay(2);
         playlist.on_size(
             playlist_w,
             playlist_h - (g_properties.show_playlist_info ? playlist_info_and_gap_h : 0),
@@ -685,7 +686,7 @@ function PlaylistPanel(x, y) {
      * @const
      * @type {number}
      */
-    var playlist_info_h = is_4k ? g_properties.row_h * 2 + 8 : g_properties.row_h + 4;
+    var playlist_info_h = scaleForDisplay(g_properties.row_h + 4);
 
     /**
      * @const
@@ -947,8 +948,6 @@ function Playlist(x, y) {
         var has_selected_item = selection_handler.has_selected_items();
         var is_cur_playlist_empty = !this.cnt.rows.length;
 
-        plman.SetActivePlaylistContext();
-
         var cmm = new Context.MainMenu();
 
         if (fb.IsPlaying) {
@@ -1000,7 +999,9 @@ function Playlist(x, y) {
 
             append_sort_menu_to(cmm);
 
-            append_weblinks_menu_to(cmm, metadb);
+            if (pref.show_weblinks) {
+                append_weblinks_menu_to(cmm, metadb);
+            }
 
             if (has_selected_item) {
                 append_send_items_menu_to(cmm);
@@ -1801,7 +1802,8 @@ function Playlist(x, y) {
         if (cur_playlist_idx !== plman.ActivePlaylist) {
             g_properties.scroll_pos = _.isNil(scroll_pos_list[plman.ActivePlaylist]) ? 0 : scroll_pos_list[plman.ActivePlaylist];
         }
-        this.row_h = is_4k ? g_properties.row_h * 2 : g_properties.row_h;
+        this.row_h = scaleForDisplay(g_properties.row_h);
+        header_h_in_rows = calcHeaderRows();
         this.initialize_list();
         scroll_to_focused();
     };
@@ -2076,7 +2078,7 @@ function Playlist(x, y) {
                 'Use compact group header',
                 _.bind(function () {
                     g_properties.use_compact_header = !g_properties.use_compact_header;
-                    header_h_in_rows = g_properties.use_compact_header ? g_properties.rows_in_compact_header : g_properties.rows_in_header;
+                    header_h_in_rows = calcHeaderRows();
                     this.initialize_list();
                     scroll_to_focused_or_now_playing();
                 }, that),
@@ -2091,14 +2093,6 @@ function Playlist(x, y) {
                     scroll_to_focused_or_now_playing();
                 }, that),
                 {is_checked: g_properties.show_disc_header}
-            );
-
-            appear_header.append_item(
-                'Show original release date',
-                function () {
-                    g_properties.show_original_date = !g_properties.show_original_date;
-                },
-                {is_checked: g_properties.show_original_date}
             );
 
             if (!g_properties.use_compact_header) {
@@ -2149,14 +2143,6 @@ function Playlist(x, y) {
                 g_properties.alternate_row_color = !g_properties.alternate_row_color;
             },
             {is_checked: g_properties.alternate_row_color}
-        );
-
-        appear_row.append_item(
-            'Show focus item',
-            function () {
-                g_properties.show_focused_row = !g_properties.show_focused_row;
-            },
-            {is_checked: g_properties.show_focused_row}
         );
 
         appear_row.append_item(
@@ -2284,7 +2270,6 @@ function Playlist(x, y) {
         var web_links = [
             ['Google', 'google'],
             ['Google Images', 'googleImages'],
-            ['eCover', 'eCover'],
             ['Wikipedia', 'wikipedia'],
             ['YouTube', 'youTube'],
             ['Last FM', 'lastFM'],
@@ -2758,9 +2743,22 @@ function Playlist(x, y) {
     // private:
     var that = this;
 
+    function calcHeaderRows() {
+        var numRows;
+        if (g_properties.use_compact_header) {
+            numRows = g_properties.rows_in_compact_header;
+        } else {
+            numRows = g_properties.rows_in_header;
+            if (pref.font_size_playlist_header * 2 + 3 + pref.font_size_playlist > g_properties.rows_in_header * g_properties.row_h * 0.6) {
+                numRows++;
+            }
+        }
+        return numRows;
+    }
+
     // Constants
     /** @type {number} */
-    var header_h_in_rows = g_properties.use_compact_header ? g_properties.rows_in_compact_header : g_properties.rows_in_header;
+    var header_h_in_rows = calcHeaderRows();
 
     // Window state
     var was_on_size_called = false;
@@ -3426,8 +3424,8 @@ function DiscHeader(parent, x, y, w, h, idx) {
             gr.FillSolidRect(this.x, this.y + 1, this.w, this.h - 1, g_pl_colors.row_alternate);
         }
 
-        var cur_x = this.x + (is_4k ? 36 : 18);
-        var right_pad = is_4k ? 20 : 10;
+        var cur_x = this.x + scaleForDisplay(18);
+        var right_pad = scaleForDisplay(10);
 
         var title_font = g_pl_fonts.title_normal;
         var title_color = g_pl_colors.title_normal;
@@ -3717,12 +3715,12 @@ function Header(parent, x, y, w, h, idx) {
             }
 
             if (this.is_playing()) {
-                var p = is_4k ? 12 : 6; // from art below
+                var p = scaleForDisplay(6); // from art below
                 if (this.has_selected_items()) {
-                    grClip.FillSolidRect(0, p, is_4k ? 16 : 8, this.h - p * 2, col.accent);
+                    grClip.FillSolidRect(0, p, scaleForDisplay(8), this.h - p * 2, col.accent);
                     // grClip.FillGradRect(5, p, this.w / 2, this.h - p * 2, 180, g_pl_colors.row_selected, col.accent);
                 } else {
-                    grClip.FillSolidRect(0, p, is_4k ? 16 : 8, this.h - p * 2, col.darkAccent);
+                    grClip.FillSolidRect(0, p, scaleForDisplay(8), this.h - p * 2, col.darkAccent);
                     // grClip.FillGradRect(5, p, this.w / 2, this.h - p * 2, 180, g_pl_colors.background, col.darkAccent);
                 }
             }
@@ -3735,7 +3733,7 @@ function Header(parent, x, y, w, h, idx) {
 
             //************************************************************//
 
-            var left_pad = is_4k ? 20 : 10;
+            var left_pad = scaleForDisplay(10);
 
             //---> Artbox
             if (g_properties.show_album_art) {
@@ -3747,8 +3745,8 @@ function Header(parent, x, y, w, h, idx) {
                 }
 
                 if (art !== null || !g_properties.auto_album_art) {
-                    var p = is_4k ? 12 : 6;
-                    var spacing = is_4k ? 4 : 2;
+                    var p = scaleForDisplay(6);
+                    var spacing = scaleForDisplay(2);
 
                     var art_box_size = art_max_size + spacing * 2;
                     var art_box_x = p * 3;
@@ -3976,7 +3974,7 @@ function Header(parent, x, y, w, h, idx) {
                                     info_color,
                                     genre_hyperlink.x + genre_hyperlink.get_w(),
                                     info_y,
-                                    is_4k ? 16 : 8,
+                                    scaleForDisplay(8),
                                     info_h
                                 );
                             }
@@ -4003,9 +4001,6 @@ function Header(parent, x, y, w, h, idx) {
                 } else {
                     info_text = '| ' + info_text;
                 }
-                // if (genre_text_w + info_text_w > info_w) {
-                //   genre_text_w = info_w - info_text_w;
-                // }
                 if (this.get_duration()) {
                     info_text += ' | Duration: ' + utils.FormatDuration(this.get_duration());
                 }
@@ -4040,7 +4035,7 @@ function Header(parent, x, y, w, h, idx) {
                                 info_color,
                                 label_hyperlink.x + label_hyperlink.w + 1,
                                 info_y,
-                                is_4k ? 16 : 8,
+                                scaleForDisplay(8),
                                 info_h
                             );
                         }
@@ -4241,7 +4236,7 @@ function Header(parent, x, y, w, h, idx) {
     };
 
     this.initialize_hyperlinks = function (gr) {
-        var right_edge = is_4k ? 10 : 5;
+        var right_edge = scaleForDisplay(5);
         hyperlinks_initialized = true;
         var date_font = g_pl_fonts.date;
         var artist_font = g_pl_fonts.artist_normal;
@@ -4252,14 +4247,14 @@ function Header(parent, x, y, w, h, idx) {
         if (date_text) {
             var date_w = Math.ceil(gr.MeasureString(date_text, date_font, 0, 0, 0, 0).Width + 5);
             var date_x = -date_w - right_edge;
-            var date_y = Math.floor(this.h / 2 - (is_4k ? 34 : 17));
+            var date_y = Math.floor(this.h / 2 - scaleForDisplay(17));
 
             hyperlinks.date = new Hyperlink(date_text, date_font, 'date', date_x, date_y, this.w);
         }
 
-        var left_pad = is_4k ? 20 : 10;
-        var art_box_x = 3 * (is_4k ? 12 : 6);
-        var spacing = is_4k ? 4 : 2;
+        var left_pad = scaleForDisplay(10);
+        var art_box_x = 3 * scaleForDisplay(6);
+        var spacing = scaleForDisplay(2);
         var art_box_size = art_max_size + spacing * 2;
         var part_h = !g_properties.show_group_info ? this.h / 2 : this.h / 3;
         left_pad += art_box_x + art_box_size;
@@ -4274,7 +4269,7 @@ function Header(parent, x, y, w, h, idx) {
             }
         }
 
-        var album_y = part_h + (is_4k ? 6 : 3);
+        var album_y = part_h + scaleForDisplay(3);
         var album_text = _.tf(grouping_handler.get_sub_title_query(), metadb);
         if (album_text) {
             hyperlinks.album = new Hyperlink(album_text, g_pl_fonts.album, 'album', left_pad, album_y, this.w);
@@ -4299,7 +4294,7 @@ function Header(parent, x, y, w, h, idx) {
         var genre_left = left_pad;
         var genre_y = label_y;
         for (var i = 0; i < genres.length; i++) {
-            var genre_w = gr.MeasureString(genres[i], g_pl_fonts.info, 0, 0, 0, 0).Width + (is_4k ? 20 : 10);
+            var genre_w = gr.MeasureString(genres[i], g_pl_fonts.info, 0, 0, 0, 0).Width + scaleForDisplay(10);
             hyperlinks['genre' + i] = new Hyperlink(genres[i], g_pl_fonts.info, 'genre', genre_left, genre_y, this.w);
             genre_left += genre_w;
         }
@@ -4386,7 +4381,7 @@ function Header(parent, x, y, w, h, idx) {
      * @const
      * @type {number}
      */
-    var art_max_size = that.h - (is_4k ? 32 : 16);
+    var art_max_size = that.h - scaleForDisplay(16);
 
     /** @type {IFbMetadbHandle} */
     var metadb;
@@ -4518,12 +4513,6 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
         }
 
         //--->
-        if (g_properties.show_focused_row && this.is_focused) {
-            // last item is cropped
-            // var rect_h = this.is_cropped ? this.h - 2 : this.h - 1;
-            // gr.DrawRect(this.x + 1, this.y, this.w - 2, rect_h, 1, row_color_focus);
-        }
-
         if (this.is_drop_top_selected) {
             gr.DrawLine(this.x, this.y + 1, this.x + this.w, this.y + 1, 2, this.is_drop_boundary_reached ? RGB(255, 165, 0) : RGB(140, 142, 144));
         }
@@ -4542,13 +4531,13 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
 
         var is_radio = _.startsWith(this.metadb.RawPath, 'http');
 
-        var right_spacing = is_4k ? 36 : 18;
+        var right_spacing = scaleForDisplay(18);
         var cur_x = this.x + right_spacing;
-        var right_pad = is_4k ? 20 : 10;
+        var right_pad = scaleForDisplay(10);
         var testRect = false;
 
         if (_.tf('$ifgreater(%totaldiscs%,1,true,false)', this.metadb) != 'false') {
-            cur_x += is_4k ? 40 : 20;
+            cur_x += scaleForDisplay(20);
         }
 
         //---> LENGTH
@@ -4714,7 +4703,7 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
 
         //---> TITLE draw
         {
-            var title_w = this.w - right_pad - (is_4k ? 44 : 22);
+            var title_w = this.w - right_pad - scaleForDisplay(22);
 
             var title_text_format = g_string_format.v_align_center | g_string_format.trim_ellipsis_char | g_string_format.no_wrap;
             gr.DrawString(
@@ -4998,7 +4987,7 @@ function Rating(x, y, max_w, h, metadb) {
      * @const
      * @type {number}
      */
-    var btn_w = is_4k ? 28 : 14;
+    var btn_w = scaleForDisplay(pref.font_size_playlist + 2);
 
     /**
      * @const
@@ -6021,7 +6010,9 @@ function PlaylistManager(x, y, w, h) {
             qwr_utils.append_default_context_menu_to(cmm);
         }
 
+        menu_down = true;
         cmm.execute(x, y);
+        menu_down = false;
         cmm.dispose();
 
         return true;
@@ -6047,7 +6038,7 @@ function PlaylistManager(x, y, w, h) {
         this.x = x;
         this.y = y;
         this.w = w;
-        this.h = is_4k ? g_properties.row_h * 2 + 8 : g_properties.row_h + 4;
+        this.h = scaleForDisplay(g_properties.row_h + 4);
     };
 
     this.trace = function (x, y) {

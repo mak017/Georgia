@@ -21,25 +21,19 @@ function $(field, metadb) {
     return tf;
 }
 
-function StringFormat() {
-    var h_align = 0,
-        v_align = 0,
-        trimming = 0,
-        flags = 0;
-    switch (arguments.length) {
-        // fall-through
-        case 4:
-            flags = arguments[3];
-        case 3:
-            trimming = arguments[2];
-        case 2:
-            v_align = arguments[1];
-        case 1:
-            h_align = arguments[0];
-            break;
-        default:
-            return 0;
-    }
+/**
+ * Accepts 1-4 parameters, corresponding to h_align, v_align, trimming, flags
+ * @param {number} [h_align] - 0: Near, 1: Center, 2: Far
+ * @param {number} [v_align] - 0: Near, 1: Center, 2: Far
+ * @param {number} [trimming] - 0: None, 1: Char, 2: Word, 3: Ellipses char, 4: Ellipses word, 5: Ellipses path
+ * @param {number} [flags] - `|`'d together flags. See g_string_format in Common.js
+ */
+function StringFormat(h_align, v_align, trimming, flags) {
+    if (!h_align) h_align = 0;
+    if (!v_align) v_align = 0;
+    if (!trimming) trimming = 0;
+    if (!flags) flags = 0;
+
     return (h_align << 28) | (v_align << 24) | (trimming << 20) | flags;
 }
 
@@ -103,7 +97,9 @@ function ImageSize(x, y, w, h) {
 function testFont(fontName) {
     if (!utils.checkFont(fontName)) {
         console.log('Error: Font "' + fontName + '" was not found. Please install it from the fonts folder');
+        return false;
     }
+    return true;
 }
 
 function calculateGridMaxTextWidth(gr, gridArray, font) {
@@ -349,18 +345,130 @@ function makeHttpRequest(type, url, successCB) {
     }, this);
 }
 
+// from: https://github.com/substack/semver-compare/issues/1#issuecomment-594765531
 function isNewerVersion(oldVer, newVer) {
-    var oldParts = oldVer.split('.');
-    var newParts = newVer.split('.');
-    for (var i = 0; i < newParts.length; i++) {
-        var a = parseInt(newParts[i]) || 0;
-        var b = parseInt(oldParts[i]) || 0;
-        if (a > b) return true;
-        if (a < b) return false;
+    a = newVer.split('-');
+    b = oldVer.split('-');
+    var pa = a[0].split('.');
+    var pb = b[0].split('.');
+    for (var i = 0; i < 3; i++) {
+        var na = Number(pa[i]);
+        var nb = Number(pb[i]);
+        if (na > nb) return true;
+        if (nb > na) return false;
+        if (!isNaN(na) && isNaN(nb)) return true;
+        if (isNaN(na) && !isNaN(nb)) return false;
     }
-    return false;
+    if (a[1] && b[1]) {
+        return a[1] > b[1] ? true : false;
+    }
+    return !a[1] && b[1] ? true : false;
 }
 
+var menuStartIndex = 100; // can be anything except 0
+function Menu(title) {
+    Menu.itemIndex++;
+    Menu.callbacks;
+    Menu.variables;
+    this.menu = window.CreatePopupMenu();
+    this.title = title;
+    this.systemMenu = false;
+    this.menuManager = null;
+
+    this.initFoobarMenu = function (name) {
+        if (name) {
+            this.systemMenu = true;
+            this.menuManager = fb.CreateMainMenuManager();
+            this.menuManager.Init(name);
+            this.menuManager.BuildMenu(this.menu, 1);
+        }
+    };
+
+    this.addSeparator = function () {
+        this.menu.AppendMenuSeparator();
+    };
+
+    this.addItem = function (label, enabled, callback, disabled) {
+        this.addItemWithVariable(label, enabled, undefined, callback, disabled);
+    };
+
+    /** similar to addItem, but takes an object and property name which will automatically be set when the callback is called,
+     * before calling any user specified callback. If the property you wish to toggle is options.repeat, then propertiesObj
+     * is options, and the propertyName must be "repeat" as a string.
+     **/
+    this.addToggleItem = function (label, propertiesObj, propertyName, callback, disabled) {
+        this.addItem(
+            label,
+            propertiesObj[propertyName],
+            function () {
+                propertiesObj[propertyName] = !propertiesObj[propertyName];
+                if (callback) {
+                    callback();
+                }
+            },
+            disabled
+        );
+    };
+
+    // creates a set of radio items and checks the value specified
+    this.addRadioItems = function (labels, radioValue, variables, callback) {
+        var startIndex = Menu.itemIndex;
+        var selectedIndex;
+        for (var i = 0; i < labels.length; i++) {
+            this.menu.AppendMenuItem(MF_STRING, Menu.itemIndex, labels[i]);
+            Menu.callbacks[Menu.itemIndex] = callback;
+            Menu.variables[Menu.itemIndex] = variables[i];
+            if (radioValue === variables[i]) {
+                selectedIndex = Menu.itemIndex;
+            }
+            Menu.itemIndex++;
+        }
+        this.menu.CheckMenuRadioItem(startIndex, Menu.itemIndex - 1, selectedIndex);
+    };
+
+    this.createRadioSubMenu = function (subMenuName, labels, radioValue, variables, callback) {
+        var subMenu = new Menu(subMenuName);
+        subMenu.addRadioItems(labels, radioValue, variables, callback);
+        subMenu.appendTo(this);
+    };
+
+    this.addItemWithVariable = function (label, enabled, variable, callback, disabled) {
+        this.menu.AppendMenuItem(MF_STRING | disabled ? MF_DISABLED : 0, Menu.itemIndex, label);
+        this.menu.CheckMenuItem(Menu.itemIndex, enabled);
+        Menu.callbacks[Menu.itemIndex] = callback;
+        if (typeof variable !== 'undefined') {
+            Menu.variables[Menu.itemIndex] = variable;
+        }
+        Menu.itemIndex++;
+    };
+
+    this.appendTo = function (parentMenu) {
+        this.menu.appendTo(parentMenu.menu, MF_STRING, this.title);
+    };
+
+    // handles callback and automatically Disposes menu
+    this.doCallback = function (idx) {
+        if (idx > menuStartIndex && Menu.callbacks[idx]) {
+            Menu.callbacks[idx](Menu.variables[idx]);
+        } else if (this.systemMenu) {
+            idx && this.menuManager.ExecuteByID(idx - 1);
+            this.menuManager.Dispose();
+        }
+        this.menu.Dispose();
+        Menu.callbacks = [];
+        Menu.variables = [];
+        Menu.itemIndex = menuStartIndex;
+    };
+
+    this.trackPopupMenu = function (x, y) {
+        return this.menu.TrackPopupMenu(x, y);
+    };
+}
+Menu.itemIndex = menuStartIndex; // TODO: in SMP initialize these values inside the class
+Menu.callbacks = [];
+Menu.variables = [];
+
+// setup variables for 4k check
 var sizeInitialized = false;
 var last_size = undefined;
 
@@ -378,6 +486,10 @@ function checkFor4k(w, h) {
     }
 }
 
+function scaleForDisplay(number) {
+    return is_4k ? number * 2 : number;
+}
+
 try {
     var DPI = WshShell.RegRead('HKCU\\Control Panel\\Desktop\\WindowMetrics\\AppliedDPI');
 } catch (e) {
@@ -385,6 +497,12 @@ try {
 }
 
 _.mixin({
+    isFile: function (file) {
+        return _.isString(file) ? fso.FileExists(file) : false;
+    },
+    isFolder: function (folder) {
+        return _.isString(folder) ? fso.FolderExists(folder) : false;
+    },
     runCmd: function (command, wait, show) {
         try {
             WshShell.Run(command, show ? 1 : 0, !_.isNil(wait) ? wait : false);

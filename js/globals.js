@@ -2,9 +2,13 @@ var globals = PanelProperties.get_instance();
 var pref = PanelProperties.get_instance(); // preferences
 var tf = PanelProperties.get_instance(); // titleformating strings
 
-var currentVersion = '1.1.7';
+var currentVersion = '1.1.8';
 var updateAvailable = false;
 var updateHyperlink;
+
+var g_component_playcount = utils.CheckComponent('foo_playcount');
+var g_component_utils = utils.CheckComponent('foo_utils');
+var componentEnhancedPlaycount = utils.CheckComponent('foo_enhanced_playcount');
 
 // these used to be initialized in js_marc2003/js/helpers.js
 var doc = new ActiveXObject('htmlfile');
@@ -19,39 +23,51 @@ globals.add_properties({
 
 // THEME PREFERENCES/PROPERTIES EXPLANATIONS - After initial run, these values are changed in Options Menu or by Right Click >> Properties and not here!
 pref.add_properties({
-    locked: ['Lock theme', false], // true: prevent changing theme with right click
-    rotation_amt: ['Art: Degrees to rotate CDart', 3], // # of degrees to rotate per track change.
-    aa_glob: ['Art: Cycle through all images', true], // true: use glob, false: use albumart reader (front only)
-    display_cdart: ['Art: Display CD art', true], // true: show CD artwork behind album artwork. This artwork is expected to be named cd.png and have transparent backgrounds (can be found at fanart.tv)
-    art_rotate_delay: ['Art: Seconds to display each art', 30], // seconds per image
-    rotate_cdart: ['Art: Rotate CD art on new track', true], // true: rotate cdArt based on track number. i.e. rotationAmt = %tracknum% * x degrees
-    cdart_ontop: ['Art: Show CD art above front cover', false], // true: display cdArt above front cover
-    show_debug_log: ['Debug: Show Debug Output', false], // true: show debug output in console
-    show_theme_log: ['Debug: Show Theme Logging', false], // true: show theme logging in console
-    hide_cursor: ['Hide Cursor when stationary', false], // true: hide cursor when not moving, false: don't
-    show_flags: ['Show country flags', true], // true: show the artist country flags
-    // check_multich:		['Check for MultiChannel version', false],	// true: search paths in tf.MultiCh_paths to see if there is a multichannel version of the current album available
-    use_vinyl_nums: ['Use vinyl style numbering (e.g. A1)', true], // true: if the tags specified in tf.vinyl_side and tf.vinyl_tracknum are set, then we'll show vinyl style track numbers (i.e. "B2." instead of "04.")
-    start_Playlist: ['Display playlist on startup', false], // true: show the playlist window when the theme starts up
-    show_progress_bar: ['Show Progress Bar', true], // true: show progress bar, otherwise hide it (useful is using another panel for this)
-    show_transport: ['Show transport controls', true], // true: show the play/pause/next/prev/random buttons at the top of the screen
-    show_random_button: ['Show Random Button', true], // true: show random button in transport controls, ignored if transport not shown
-    show_volume_button: ['Show Volume Button', false], // true: show volume button in transport controls, ignored if transport is not shown
-    show_reload_button: ['Show Reload Button', false], // true: show a button that reloads the theme when clicked. Useful for debugging only
-    freq_update: ['Frequent progress bar updates', true], // true: update progress bar multiple times a second. Smoother, but uses more CPU
-    time_zone: ['Time-zone (formatted +/-HH:MM, e.g. -06:00)', '+00:00'], // used to create accurate timezone offsets. "Z", "-06:00", "+06:00", etc. are all valid values
+	locked: ['Lock theme', false], // true: prevent changing theme with right click
+	rotation_amt: ['Art: Degrees to rotate CDart', 3], // # of degrees to rotate per track change.
+	aa_glob: ['Art: Cycle through all images', true], // true: use glob, false: use albumart reader (front only)
+	display_cdart: ['Art: Display CD art', true], // true: show CD artwork behind album artwork. This artwork is expected to be named cd.png and have transparent backgrounds (can be found at fanart.tv)
+	art_rotate_delay: ['Art: Seconds to display each art', 30], // seconds per image
+	rotate_cdart: ['Art: Rotate CD art on new track', true], // true: rotate cdArt based on track number. i.e. rotationAmt = %tracknum% * x degrees
+	cdart_ontop: ['Art: Show CD art above front cover', false], // true: display cdArt above front cover
+	show_debug_log: ['Debug: Show Debug Output', false], // true: show debug output in console
+	show_theme_log: ['Debug: Show Theme Logging', false], // true: show theme logging in console
+	hide_cursor: ['Hide Cursor when stationary', false], // true: hide cursor when not moving, false: don't
+	show_flags: ['Show country flags', true], // true: show the artist country flags
+	// check_multich:		['Check for MultiChannel version', false],	// true: search paths in tf.MultiCh_paths to see if there is a multichannel version of the current album available
+	use_vinyl_nums: ['Use vinyl style numbering (e.g. A1)', true], // true: if the tags specified in tf.vinyl_side and tf.vinyl_tracknum are set, then we'll show vinyl style track numbers (i.e. "B2." instead of "04.")
+	start_Playlist: ['Display playlist on startup', false], // true: show the playlist window when the theme starts up
+	show_progress_bar: ['Show Progress Bar', true], // true: show progress bar, otherwise hide it (useful is using another panel for this)
+	show_transport: ['Transport: Show transport controls', true], // true: show the play/pause/next/prev/random buttons at the top of the screen
+	show_transport_below: ['Transport: Show transport below art', false],
+	show_random_button: ['Transport: Show Random Button', true], // true: show random button in transport controls, ignored if transport not shown
+	show_volume_button: ['Transport: Show Volume Button', false], // true: show volume button in transport controls, ignored if transport is not shown
+	show_reload_button: ['Transport: Show Reload Button', false], // true: show a button that reloads the theme when clicked. Useful for debugging only
+	transport_buttons_size: ['Transport: Button size', 32], // size in pixels of the buttons
+
+	show_timeline_tooltips: ['Show timeline tooltips', true], // true: show tooltips when hovering over the timeline that show information on plays
+
+	menu_font_size: ['Menu font size', 12],
+
+	freq_update: ['Frequent progress bar updates', true], // true: update progress bar multiple times a second. Smoother, but uses more CPU
+	time_zone: ['Time-zone (formatted +/-HH:MM, e.g. -06:00)', '+00:00'], // used to create accurate timezone offsets. "Z", "-06:00", "+06:00", etc. are all valid values
     hyperlinks_ctrl: ['Playlist: Hyperlinks require CTRL Key', false], // true: clicking on hyperlinks only works if CTRL key is held down
     darkMode: ['Use Dark Theme', true], // true: use a darker background
     use_4k: ['Detect 4k', 'auto'], // auto: switch to 4k mode when window width wide enough, never: never use 4k mode, always: always use 4k mode
     checkForUpdates: ['Check for Updates', true], // true: check github repo to determine if updates exist
 
-    lyrics_line_height: ['Lyrics: Line height', 32],
-    lyrics_normal_color: ['Lyrics: Text Color', 'RGBA(255, 255, 255, 255);'],
-    lyrics_focus_color: ['Lyrics: Text Highlite Color', 'RGBA(255, 241, 150, 255);'],
-    lyrics_h_padding: ['Lyrics: Padding Between Lines', 24],
-    lyrics_glow: ['Lyrics: Glow enabled', true],
-    lyrics_text_shadow: ['Lyrics: Text Shadow', true],
-    lyrics_font_size: ['Lyrics: Font Size', 20]
+	lyrics_line_height: ['Lyrics: Line height', 32],
+	lyrics_normal_color: ['Lyrics: Text Color', 'RGBA(255, 255, 255, 255);'],
+	lyrics_focus_color: ['Lyrics: Text Highlite Color', 'RGBA(255, 241, 150, 255);'],
+	lyrics_h_padding: ['Lyrics: Padding Between Lines', 24],
+	lyrics_glow: ['Lyrics: Glow enabled', true],
+	lyrics_text_shadow: ['Lyrics: Text Shadow', true],
+
+	show_weblinks: ['Playlist: Show weblinks', true],
+
+	font_size_playlist: ['Font Size: Playlist', 12],
+	font_size_playlist_header: ['Font Size: Playlist Header', 15],
+	lyrics_font_size: ['Font Size: Lyrics', 20],
 });
 
 if (pref.art_rotate_delay < 5) {
@@ -230,18 +246,17 @@ tf.glob_paths = [
     '$replace(%path%,%directoryname%\\%filename_ext%,)folder*' // all folder images in parent directory
 ];
 
-tf.lyr_path = [
-    // simply add, change or re-order entries as needed
-    '$replace($replace(%path%,%filename_ext%,),,\\)',
-    fb.ProfilePath + 'lyrics\\'
-    // "\\\\Ripley\\Dirs\\lyrics\\"
+tf.lyr_path = [ // simply add, change or re-order entries as needed
+	'$replace($replace(%path%,%filename_ext%,),\,\\)',
+	fb.ProfilePath + "lyrics\\",
 ];
 tf.lyr_artist = "$replace(%artist%,'/','_',':','_','\"','_')"; // we need to strip some special characters so we can't use just use tf.artist
 tf.lyr_title = "$replace(%title%,'/','_',':','_','\"','_')"; // we need to strip special characters so we can't just use tf.title
-tf.lyr_filename = [
-    // filenames to look for lyrics files. Both .lrc and .txt will be searched for each entry in this list
-    tf.lyr_artist + ' - ' + tf.lyr_title,
-    tf.lyr_artist + ' -' + tf.lyr_title
+tf.lyr_filename = [ // filenames to look for lyrics files. Both .lrc and .txt will be searched for each entry in this list
+	tf.lyr_artist + ' - ' + tf.lyr_title,
+	tf.lyr_artist + ' -' + tf.lyr_title,
+	tf.tracknum.replace('.','') + ' - ' + tf.lyr_title,
+	tf.tracknum.replace('.','') + ' - ' + tf.lyr_artist + ' - ' + tf.lyr_title,
 ];
 
 tf.labels = [
@@ -261,42 +276,59 @@ pref.cdart_amount = 0.48; // show 48% of the CD image if it will fit on the scre
 pref.display_menu = true; // true: show the menu bar at the top of the theme (only useful in CUI); false: don't show menu bar
 
 function migrateCheck(version, storedVersion) {
-    if (version !== storedVersion) {
-        // this function clears default values which have changed
-        switch (storedVersion) {
-            case '0.9.5':
-            case '0.9.5.1':
-            case '0.9.6':
-            case 'NONE':
-                pref.lyrics_line_height = null;
-                pref.lyrics_font_size = null;
-                window.SetProperty('user.list.pad.bottom', null);
-                window.SetProperty('user.list.pad.left', null);
-                window.SetProperty('user.list.pad.right', null);
-                window.SetProperty('user.list.pad.top', null);
-            case '0.9.9':
-                tf.title = null;
+	if (version !== storedVersion) {
+		// this function clears default values which have changed
+		switch (storedVersion) {
+			case '0.9.5':
+			case '0.9.5.1':
+			case '0.9.6':
+			case 'NONE':
+				pref.lyrics_line_height = null;
+				pref.lyrics_font_size = null;
+				window.SetProperty('user.list.pad.bottom', null);
+				window.SetProperty('user.list.pad.left', null);
+				window.SetProperty('user.list.pad.right', null);
+				window.SetProperty('user.list.pad.top', null);
+			case '0.9.9':
+				tf.title = null;
 
-            case '1.0.0':
-                window.SetProperty('Library: Font Size', null);
-                window.SetProperty('SYSTEM.Font Size', null);
-                window.SetProperty('user.row.height', null);
+			case '1.0.0':
+				window.SetProperty('Library: Font Size', null);
+				window.SetProperty('SYSTEM.Font Size', null);
+				window.SetProperty('user.row.height', null);
 
-            case '1.1.0':
-            case '1.1.1':
-                tf.edition = null;
+			case '1.1.0':
+			case '1.1.1':
+				tf.edition = null;
 
-            case '1.1.2':
-            case '1.1.3':
-            case '1.1.4':
-            case '1.1.5':
-                tf.date = null;
-                tf.year = null;
-                pref.time_zone = null;
+			case '1.1.2':
+			case '1.1.3':
+			case '1.1.4':
+			case '1.1.5':
+				tf.date = null;
+				tf.year = null;
+				pref.time_zone = null;
 
-            case '1.1.6':
-                // after all previous versions have fallen through
-                console.log('Upgrading Georgia Theme settings');
+			case '1.1.6':
+			case '1.1.7':
+				window.SetProperty('Lyrics: Font Size', null);
+				window.SetProperty('user.header.original_date.show', null);
+				window.SetProperty('user.row.focused.show', null);
+
+			case '1.1.8-beta1':
+			case '1.1.8-beta2':
+				tf.date = null;
+				tf.year = null;
+				window.SetProperty('Show transport controls', null);
+				window.SetProperty('Show transport below art', null);
+				window.SetProperty('Show Random Button', null);
+				window.SetProperty('Show Volume Button', null);
+				window.SetProperty('Show Reload Button', null);
+
+			case '1.1.8':
+
+				// after all previous versions have fallen through
+				console.log('Upgrading Georgia Theme settings');
                 globals.version = currentVersion;
                 window.Reload();
             default:
@@ -307,25 +339,33 @@ function migrateCheck(version, storedVersion) {
 }
 
 migrateCheck(currentVersion, globals.version);
+function checkForUpdates(openUrl) {
+	var url = 'https://api.github.com/repos/kbuffington/Georgia/tags';
+	makeHttpRequest('GET', url, function (resp) {
+		try {
+			var respObj = JSON.parse(resp);
+			updateAvailable = isNewerVersion(currentVersion, respObj[0].name);
+			console.log('Current released version of Georgia: v' + respObj[0].name);
+			if (updateAvailable) {
+				stoppedTime += ' - ';
+				console.log('>>> Georgia update available. Download it here: https://github.com/kbuffington/Georgia/releases')
+				if (!fb.IsPlaying) {
+					str.time = stoppedTime;
+					RepaintWindow();
+				}
+				updateHyperlink = new Hyperlink('Update Available', ft.lower_bar, 'update', 0, 0, window.Width);
+				if (openUrl) {
+					updateHyperlink.click();
+				}
+			} else {
+				console.log('You are on the most current version of Georgia');
+			}
+		} catch (e) {
+			console.log('Could not check latest version');
+		}
+	});
+}
 
 if (pref.checkForUpdates) {
-    var url = 'https://api.github.com/repos/kbuffington/Georgia/tags';
-    makeHttpRequest('GET', url, function (resp) {
-        try {
-            var respObj = JSON.parse(resp);
-            updateAvailable = isNewerVersion(currentVersion, respObj[0].name);
-            console.log('Current released version of Georgia: v' + respObj[0].name);
-            if (updateAvailable) {
-                stoppedTime += ' - ';
-                console.log('>>> Georgia update available. Download it here: https://github.com/kbuffington/Georgia/releases');
-                if (!fb.IsPlaying) {
-                    str.time = stoppedTime;
-                    RepaintWindow();
-                }
-                updateHyperlink = new Hyperlink('Update Available', ft.lower_bar, 'update', 0, 0, window.Width);
-            }
-        } catch (e) {
-            console.log('Could not check latest version');
-        }
-    });
+	checkForUpdates(false);
 }

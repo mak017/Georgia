@@ -7,8 +7,6 @@ var lastOverButton = null;
 
 var activatedBtns = [];
 
-var tt = new _.tt_handler();
-
 function buttonEventHandler(x, y, m) {
     // var CtrlKeyPressed = utils.IsKeyPressed(VK_CONTROL);
     // var ShiftKeyPressed = utils.IsKeyPressed(VK_SHIFT);
@@ -23,7 +21,9 @@ function buttonEventHandler(x, y, m) {
             break;
         }
     }
-    if (lastOverButton != thisButton) g_tooltip.Deactivate();
+    if (lastOverButton != thisButton) {
+        tt.stop();
+    }
     lastOverButton = thisButton;
 
     switch (c) {
@@ -189,7 +189,7 @@ Button.prototype.onClick = function () {
             onPlaylistsMenu(this.x, this.y + this.h);
             break;
         case 'Options':
-            onSettingsMenu(this.x, this.y + this.h);
+            onOptionsMenu(this.x, this.y + this.h);
             break;
         case 'Repeat':
             var pbo = fb.PlaybackOrder;
@@ -332,24 +332,41 @@ function onMainMenu(x, y, name) {
     mainMenuOpen = true;
     menu_down = true;
 
-    var menuManager = fb.CreateMainMenuManager();
-
-    var menu = window.CreatePopupMenu();
-    var ret;
-
     if (name) {
-        menuManager.Init(name);
-        menuManager.BuildMenu(menu, 1);
+        var menu = new Menu();
 
-        ret = menu.TrackPopupMenu(x, y);
+        if (name === 'Help') {
+            var statusMenu = new Menu('Georgia Theme Status');
 
-        if (ret > 0) {
-            menuManager.ExecuteByID(ret - 1);
+            statusMenu.addItem('All fonts installed', fontsInstalled, undefined, true);
+            statusMenu.addItem('Artist logos found', IsFile(pref.logo_hq + 'Metallica.png'), undefined, true);
+            statusMenu.addItem('Record label logos found', IsFile(pref.label_base + 'Republic.png'), undefined, true);
+            statusMenu.addItem('Flag images found', IsFile(pref.flags_base + (is_4k ? '64\\' : '32\\') + 'United-States.png'), undefined, true);
+            statusMenu.addItem('foo_enhanced_playcount installed', componentEnhancedPlaycount, function () {
+                _.runCmd('https://www.foobar2000.org/components/view/foo_enhanced_playcount');
+            });
+
+            statusMenu.appendTo(menu);
+
+            menu.addItem('Georgia releases', false, function () {
+                _.runCmd('https://github.com/kbuffington/Georgia/releases');
+            });
+            menu.addItem('Georgia changelog', false, function () {
+                _.runCmd('https://github.com/kbuffington/Georgia/blob/master/changelog.md');
+            });
+            menu.addItem('Check for updated version of Georgia', false, function () {
+                checkForUpdates(true);
+            });
+            menu.addItem('Report an issue with Georgia', false, function () {
+                _.runCmd('https://github.com/kbuffington/Georgia/issues');
+            });
         }
+        menu.initFoobarMenu(name);
+
+        var ret = menu.trackPopupMenu(x, y);
+        menu.doCallback(ret);
     }
 
-    menuManager.Dispose();
-    menu.Dispose();
     menu_down = false;
 }
 // =================================================== //
