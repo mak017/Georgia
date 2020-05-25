@@ -2317,9 +2317,9 @@ function on_playback_stop(reason) {
         while (recordLabelsInverted.length) {
             disposeImg(recordLabelsInverted.pop());
         }
-        if (metadb_handle) {
-            metadb_handle = null;
-        }
+        // if (metadb_handle) {
+        //     metadb_handle = null;
+        // }
         createButtonObjects(ww, wh); // switch pause button to play
         loadFromCache = false;
     }
@@ -2768,7 +2768,7 @@ function ResizeArtwork(resetCDPosition) {
     if (albumart && albumart.Width && albumart.Height) {
         // Size for big albumart
         var album_scale = Math.min(
-            (displayPlaylist || displayLibrary ? 0.47 * ww : 0.2905581637976004 * ww) / albumart.Width,
+            (displayLibrary ? 0.47 * ww : 0.2905581637976004 * ww) / albumart.Width,
             (wh - geo.top_art_spacing - lowerSpace - scaleForDisplay(16)) / albumart.Height
         );
         if (displayPlaylist || displayLibrary) {
