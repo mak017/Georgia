@@ -83,28 +83,28 @@ function createPlaylistFonts() {
         return gdi.Font(name, is_4k ? size * 2 : size, style);
     }
     g_pl_fonts = {
-        title_normal: font('Segoe Ui', playlistSize),
-        title_selected: font('Segoe Ui', playlistSize),
-        title_playing: font('Segoe Ui', playlistSize),
+        title_normal: font('Fira Sans', playlistSize),
+        title_selected: font('Fira Sans', playlistSize),
+        title_playing: font('Fira Sans', playlistSize),
 
-        artist_normal: font('Segoe Ui Semibold', headerSize + 3),
-        artist_playing: font('Segoe Ui Semibold', headerSize + 3, g_font_style.underline),
-        artist_normal_compact: font('Segoe Ui Semibold', headerSize),
-        artist_playing_compact: font('Segoe Ui Semibold', headerSize, g_font_style.underline),
-        album: font('Segoe Ui Semibold', headerSize),
-        date: font('Segoe UI Semibold', headerSize + 5, g_font_style.italic),
-        date_compact: font('Segoe UI Semibold', headerSize),
-        info: font('Segoe Ui', playlistSize - 1),
-        cover: font('Segoe Ui Semibold', playlistSize - 1),
+        artist_normal: font('Fira Sans Semibold', headerSize + 3),
+        artist_playing: font('Fira Sans Semibold', headerSize + 3, g_font_style.underline),
+        artist_normal_compact: font('Fira Sans Semibold', headerSize),
+        artist_playing_compact: font('Fira Sans Semibold', headerSize, g_font_style.underline),
+        album: font('Fira Sans Semibold', headerSize),
+        date: font('Fira Sans Semibold', headerSize + 5, g_font_style.italic),
+        date_compact: font('Fira Sans Semibold', headerSize),
+        info: font('Fira Sans', playlistSize - 1),
+        cover: font('Fira Sans Semibold', playlistSize - 1),
 
-        playcount: font('Segoe Ui', playlistSize - 3),
-        rating_not_set: font('Segoe Ui Symbol', playlistSize + 2),
-        rating_set: font('Segoe Ui Symbol', playlistSize + 4),
-        scrollbar: font('Segoe Ui Symbol', headerSize),
+        playcount: font('Fira Sans', playlistSize - 3),
+        rating_not_set: font('Segoe UI Symbol', playlistSize + 2),
+        rating_set: font('Fira Sans Symbol', playlistSize + 4),
+        scrollbar: font('Fira Sans Symbol', headerSize),
 
         font_awesome: font('FontAwesome', playlistSize + 2),
 
-        dummy_text: font('Segoe Ui', playlistSize + 1)
+        dummy_text: font('Fira Sans', playlistSize + 1)
     };
 }
 

@@ -17,11 +17,12 @@ var geo = {}; // sizes
 
 var is_4k = false;
 
-var fontThin = 'HelveticaNeueLT Pro 35 Th';
-var fontLight = 'HelveticaNeueLT Pro 45 Lt';
-var fontRegular = 'HelveticaNeueLT Pro 55 Roman';
-var fontBold = 'HelveticaNeueLT Pro 65 Md';
-var fontLightAlternate = 'NeueHaasGroteskDisp Pro XLt';
+var fontThin = 'Fira Sans UltraLight';
+var fontLight = 'Fira Sans Light';
+var fontRegular = 'Fira Sans';
+var fontBold = 'Fira Sans SemiBold';
+var fontBoldMono = 'Fira Mono Medium';
+var fontLightAlternate = 'Fira Sans Light';
 var fontGuiFx = 'Guifx v2 Transports';
 
 var fontList = [fontThin, fontLight, fontRegular, fontBold, fontLightAlternate, fontGuiFx];
@@ -38,7 +39,7 @@ var useNeue = false;
 var fontsCreated = null;
 
 function createFonts() {
-    g_tooltip = window.CreateTooltip('Segoe UI', scaleForDisplay(15));
+    g_tooltip = window.CreateTooltip('Fira Sans', scaleForDisplay(15));
     g_tooltip.setMaxWidth(scaleForDisplay(300));
     g_tooltip.text = ''; // just in case
 
@@ -66,10 +67,10 @@ function createFonts() {
     ft.title_lrg = font(fontThin, 32, 0);
     ft.title_med = font(fontThin, 28, 0);
     ft.title_sml = font(fontThin, 24, 0);
-    ft.tracknum_lrg = font(fontLight, 34, g_font_style.bold);
-    ft.tracknum_med = font(fontLight, 30, g_font_style.bold);
-    ft.tracknum_sml = font(fontLight, 26, g_font_style.bold);
-    ft.year = font(fontRegular, 48, g_font_style.bold);
+    ft.tracknum_lrg = font(fontRegular, 34, 0);
+    ft.tracknum_med = font(fontRegular, 30, 0);
+    ft.tracknum_sml = font(fontRegular, 26, 0);
+    ft.year = font(fontBold, 48, 0);
     ft.artist_lrg = font(fontBold, 40, 0);
     ft.artist_med = font(fontBold, 36, 0);
     ft.artist_sml = font(fontBold, 30, 0);
@@ -85,8 +86,10 @@ function createFonts() {
         updateHyperlink.setFont(ft.lower_bar);
     }
     ft.lower_bar_bold = font(fontBold, 30, 0);
+    ft.lower_bar_bold_mono = font(fontBoldMono, 30, 0);
     ft.lower_bar_sml = font(fontLight, 26, 0);
     ft.lower_bar_sml_bold = font(fontBold, 26, 0);
+    ft.lower_bar_sml_bold_mono = font(fontBoldMono, 26, 0);
     if (utils.checkFont(fontLightAlternate)) {
         useNeue = true;
         ft.lower_bar_artist = font(fontLightAlternate, 31, g_font_style.italic);
@@ -98,8 +101,8 @@ function createFonts() {
     ft.small_font = font(fontRegular, 14, 0);
     ft.guifx = font(fontGuiFx, Math.floor(pref.transport_buttons_size / 2), 0);
     ft.Marlett = font('Marlett', 13, 0);
-    ft.SegoeUi = font('Segoe Ui Semibold', pref.menu_font_size, 0);
-    ft.library_tree = font('Segoe UI', libraryProps.baseFontSize, 0);
+    ft.SegoeUi = font('Fira Sans Semibold', pref.menu_font_size, 0);
+    ft.library_tree = font('Fira Sans', libraryProps.baseFontSize, 0);
     ft.lyrics = font(fontRegular, pref.lyrics_font_size || 20, 1);
 }
 
@@ -1016,6 +1019,7 @@ function draw_ui(gr) {
     gr.SetTextRenderingHint(TextRenderingHint.AntiAliasGridFit);
 
     var ft_lower_bold = ft.lower_bar_bold;
+    var ft_lower_mono = ft.lower_bar_bold_mono;
     var ft_lower = ft.lower_bar;
     var ft_lower_orig_artist = ft.lower_bar_artist;
     var trackNumWidth = Math.ceil(gr.MeasureString(str.tracknum, ft_lower, 0, 0, 0, 0).Width);
@@ -1025,6 +1029,7 @@ function draw_ui(gr) {
     if (width + trackNumWidth + titleWidth + origArtistWidth > 0.95 * ww) {
         // we don't have room for all the text so use a smaller font and recalc size
         ft_lower_bold = ft.lower_bar_sml_bold;
+        ft_lower_mono = ft.lower_bar_sml_bold_mono;
         ft_lower = ft.lower_bar_sml;
         ft_lower_orig_artist = ft.lower_bar_artist_sml;
         titleMeasurements = gr.MeasureString(str.title_lower, ft_lower, 0, 0, 0, 0);
@@ -1096,7 +1101,7 @@ function draw_ui(gr) {
             width = gr.CalcTextWidth('  ' + str.length, ft_lower);
             gr.DrawString(
                 str.time,
-                ft_lower_bold,
+                ft_lower_mono,
                 col.now_playing,
                 0.725 * ww,
                 lowerBarTop + heightAdjustment,
@@ -1104,7 +1109,7 @@ function draw_ui(gr) {
                 titleMeasurements.Height,
                 StringFormat(2, 0)
             );
-            width += gr.CalcTextWidth('  ' + str.time, ft_lower_bold);
+            width += gr.CalcTextWidth('  ' + str.time, ft_lower_mono);
             gr.DrawString(
                 str.disc,
                 ft_lower,
@@ -1300,7 +1305,7 @@ function onOptionsMenu(x, y) {
             } else {
                 pref.menu_font_size = size;
             }
-            ft.SegoeUi = gdi.Font('Segoe Ui Semibold', scaleForDisplay(pref.menu_font_size), 0);
+            ft.SegoeUi = gdi.Font('Fira Sans Semibold', scaleForDisplay(pref.menu_font_size), 0);
             createButtonImages();
             createButtonObjects(ww, wh);
             RepaintWindow();
