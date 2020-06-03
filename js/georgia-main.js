@@ -1849,7 +1849,7 @@ function on_metadb_changed(handle_list, fromhook) {
             str.trackInfo = $(codec + '[ | %replaygain_album_gain%]');
 
             // str.disc = fb.TitleFormat(tf.disc).Eval();
-            str.disc = $('$ifgreater(%totaldiscs%,1,CD $num(%discnumber%,1)/%totaldiscs%,)');
+            str.disc = $('$ifgreater(%totaldiscs%,1,CD $num(%discnumber%,1)/$num(%totaldiscs%,1),)');
 
             h = Math.floor(fb.PlaybackLength / 3600);
             m = Math.floor((fb.PlaybackLength % 3600) / 60);
