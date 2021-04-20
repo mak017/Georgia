@@ -106,8 +106,7 @@ tf.add_properties({
     edition: [
         'Tag Fields: Edition',
         "[$if(%original release date%,$ifequal($year(%original release date%),$year(%date%),,$year(%date%) ))$if2(%edition%,'release')]"
-    ],
-    original_artist: ['Tag Fields: Original Artist', "[ '('%original artist%' cover)']"]
+    ]
 });
 
 // Playlist TF strings, not currently saved in globals:
@@ -155,16 +154,17 @@ $ifgreater($meta_num(ArtistFilter),1,$puts(mArtist,$meta(ArtistFilter,0))$if($pu
 
 // Info grid. Simply add, change, reorder, or remove entries to change grid layout
 tf.grid = [
+    {label: 'Year', val: tf.year}, // tf.year is used if the date is YYYY
+    {label: 'Release Date', val: tf.date, age: true}, // tf.date is used if the date is YYYY-MM-DD
+    {label: 'Last Played', val: '[' + tf.last_played + ']', age: true},
     {
         label: 'CD',
-        val: '$if(' + tf.disc_subtitle + ',[CD %discnumber% - ]' + tf.disc_subtitle + ')'
+        val: '$if(' + tf.disc_subtitle + ',[CD $num(%discnumber%, 1) - ]' + tf.disc_subtitle + ')'
     },
     {
         label: 'Release Type',
         val: '[%releasetype%]'
     },
-    {label: 'Year', val: tf.year}, // tf.year is used if the date is YYYY
-    {label: 'Release Date', val: tf.date, age: true}, // tf.date is used if the date is YYYY-MM-DD
     {label: 'Edition', val: tf.edition},
     {
         label: 'Label',
@@ -189,7 +189,6 @@ tf.grid = [
         val: '$if($strcmp(%codec%,Musepack),mpc,%codec%)[ $info(codec_profile)][ / $info(bitrate) kbps]'
     },
     // {label: 'Added', val: '[' + tf.added + ']', age: true},
-    {label: 'Last Played', val: '[' + tf.last_played + ']', age: true},
     {
         label: 'Hotness',
         val:

@@ -4683,7 +4683,7 @@ function Row(x, y, w, h, metadb, idx, cur_playlist_idx_arg) {
             if (this.is_playing) {
                 track_num_query = '      ';
             }
-            var title_query = track_num_query + "  %title%[ '('%original artist%' cover)']";
+            var title_query = track_num_query + '  %title%';
             title_text = fb.IsPlaying && this.is_playing && is_radio ? _.tfe(title_query) : _.tf(title_query, metadb);
         }
 
