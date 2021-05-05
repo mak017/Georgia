@@ -1,11 +1,18 @@
 function ArtCache(maxCacheSize) {
-    var art_cache_max_size = maxCacheSize;
-    var art_cache = {};
-    var art_cache_indexes = [];
-    var max_width = 1440;
-    var max_height = 872;
+    const art_cache_max_size = maxCacheSize;
+    const art_cache = {};
+    /** @type {string[]} */
+    const art_cache_indexes = [];
+    const max_width = 1440;
+    const max_height = 872;
 
-    this.encache = function(img, path) {
+    /**
+     * Adds a rescaled image to the cache under string `location` and returns the cached image.
+     * @param {GdiBitmap} img
+     * @param {string} location
+     * @return {GdiBitmap}
+     */
+    this.encache = function (img, location) {
         try {
             var h = img.Height;
             var w = img.Width;
@@ -19,39 +26,43 @@ function ArtCache(maxCacheSize) {
                 h = Math.min(h / scale_factor);
                 w = Math.min(w / scale_factor);
             }
-            art_cache[path] = img.Resize(w, h);
-            img.Dispose();
-            var pathIdx = art_cache_indexes.indexOf(path);
+            art_cache[location] = img.Resize(w, h);
+            img = null;
+            var pathIdx = art_cache_indexes.indexOf(location);
             if (pathIdx !== -1) {
                 // remove from middle of cache and put on end
                 art_cache_indexes.splice(pathIdx, 1);
             }
-            art_cache_indexes.push(path);
+            art_cache_indexes.push(location);
             if (art_cache_indexes.length > art_cache_max_size) {
-                var remove = art_cache_indexes.shift();
-                debugLog('deleting cached img:', remove)
-                disposeImg(art_cache[remove]);
+                const remove = art_cache_indexes.shift();
+                debugLog('deleting cached img:', remove);
                 delete art_cache[remove];
             }
         } catch (e) {
-            console.log('<Error: Image could not be properly parsed: ' + path + '>');
+            console.log('<Error: Image could not be properly parsed: ' + location + '>');
         }
-        return art_cache[path] || img;
-    }
+        return art_cache[location] || img;
+    };
 
-    this.getImage = function(path) {
-        if (art_cache[path]) {
-            debugLog('cache hit: ' + path);
-            return art_cache[path];
+    /**
+     * Get image at the cached location
+     * @param {string} location
+     * @return {GdiBitmap}
+     */
+    this.getImage = function (location) {
+        if (art_cache[location]) {
+            debugLog('cache hit:', location);
+            return art_cache[location];
         }
         return null;
-    }
+    };
 
-    this.clear = function() {
+    this.clear = function () {
         while (art_cache_indexes.length) {
             var remove = art_cache_indexes.shift();
-            disposeImg(art_cache[remove]);
+            art_cache[remove] = null;
             delete art_cache[remove];
         }
-    }
+    };
 }

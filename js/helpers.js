@@ -1,24 +1,69 @@
+// @ts-ignore-line
+const lodash = _.noConflict();
+var _ = lodash; // fixes type errors
+
 function IsFile(filename) {
-    return 'IsFile' in utils ? utils.IsFile(filename) : utils.FileTest(filename, 'e');
+    return utils.IsFile(filename);
 }
 
 function IsFolder(folder) {
-    return 'IsFolder' in utils ? utils.IsFolder(folder) : utils.FileTest(folder, 'd');
+    return utils.IsDirectory(folder);
 }
 
-function $(field, metadb) {
-    metadb = metadb || false;
+/**
+ *
+ * @param {string} titleFormatString Title format string to evaluate
+ * @param {FbMetadbHandle=} metadb Handle to evaluate string with
+ * @param {boolean=} force Force evaluate. Optional.
+ */
+function $(titleFormatString, metadb = undefined, force = false) {
     var tf;
     try {
         if (metadb) {
-            tf = fb.TitleFormat(field).EvalWithMetadb(metadb);
+            tf = fb.TitleFormat(titleFormatString).EvalWithMetadb(metadb);
         } else {
-            tf = fb.TitleFormat(field).Eval();
+            tf = fb.TitleFormat(titleFormatString).Eval(force);
         }
     } catch (e) {
         tf = e + ' (Invalid metadb!)';
     }
     return tf;
+}
+
+/**
+ * Given a metadata field of name, returns an array of all corresponding metadata values.
+ * Will strip leading and trailing %'s from name.
+ * @param {string} name
+ * @param {FbMetadbHandle=} metadb
+ * @returns {Array<string>}
+ */
+function getMetaValues(name, metadb = undefined) {
+    let vals = [];
+    const searchName = name.replace(/%/g, '');
+    for (let i = 0; i < parseInt($(`$meta_num(${searchName})`, metadb)); i++) {
+        vals.push($(`$meta(${searchName},${i})`, metadb));
+    }
+    if (!vals.length) {
+        // this is a fallback in case the `name` property is a complex tf field and meta_num evaluates to 0.
+        // In that case we want to evaluate the entire field, after wrapping in brackets and split on commas.
+        const unsplit = $(`[${name}]`, metadb);
+        if (unsplit.length) {
+            vals = unsplit.split(', ');
+        }
+    }
+
+    return vals;
+}
+
+/**
+ * Use the debugLog function instead of console.log to easily hide messages that I don't want cluttering the console constantly
+ * @type {function(...*):void} var_args
+ */
+function debugLog() {
+    if (arguments.length) {
+        // @ts-ignore-line
+        if (settings.showDebugLog) console.log(...arguments);
+    }
 }
 
 /**
@@ -62,6 +107,8 @@ function RGBA(r, g, b, a) {
 function RGBtoRGBA(rgb, a) {
     return (a << 24) | (rgb & 0x00ffffff);
 }
+var rgb = RGB;
+var rgba = RGBA;
 
 function colToRgb(c, showPrefix) {
     if (typeof showPrefix === 'undefined') showPrefix = true;
@@ -82,20 +129,18 @@ function calcBrightness(c) {
     var b = getBlue(c);
     return Math.round(Math.sqrt(0.299 * r * r + 0.587 * g * g + 0.114 * b * b));
 }
-var rgb = RGB;
-var rgba = RGBA;
 
-function ImageSize(x, y, w, h) {
-    return {
-        x: x,
-        y: y,
-        w: w,
-        h: h
-    };
+class ImageSize {
+    constructor(x, y, w, h) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+    }
 }
 
 function testFont(fontName) {
-    if (!utils.checkFont(fontName)) {
+    if (!utils.CheckFont(fontName)) {
         console.log('Error: Font "' + fontName + '" was not found. Please install it from the fonts folder');
         return false;
     }
@@ -106,7 +151,7 @@ function calculateGridMaxTextWidth(gr, gridArray, font) {
     var maxWidth = 0;
     gridArray &&
         gridArray.forEach(function (el) {
-            width = Math.ceil(gr.MeasureString(el.label, font, 0, 0, ww, wh).Width) + 1;
+            const width = Math.ceil(gr.MeasureString(el.label, font, 0, 0, ww, wh).Width) + 1;
             if (width > maxWidth) {
                 maxWidth = width;
             }
@@ -123,7 +168,7 @@ function chooseFontForWidth(gr, availableWidth, text, fontList, maxLines) {
     for (var i = 0; i < fontList.length; i++) {
         fontIndex = i;
         var measurements = gr.MeasureString(text, fontList[fontIndex], 0, 0, availableWidth, 0);
-        if (measurements.lines <= maxLines) break;
+        if (measurements.Lines <= maxLines) break;
     }
     return fontIndex !== undefined ? fontList[fontIndex] : null;
 }
@@ -137,27 +182,27 @@ function chooseFontForWidth(gr, availableWidth, text, fontList, maxLines) {
 function drawMultipleLines(gr, availableWidth, left, top, color, text1, fontList1, text2, fontList2, maxLines) {
     maxLines = typeof maxLines !== 'undefined' ? maxLines : 2;
     var textArray;
-    var continuation;
     var lineHeight;
-    height = 0;
+    let continuation;
+
     for (var fontIndex = 0; fontIndex < fontList1.length && fontIndex < fontList2.length; fontIndex++) {
         textArray = [];
         lineHeight = Math.max(gr.CalcTextHeight(text1, fontList1[fontIndex]), gr.CalcTextHeight(text2, fontList2[fontIndex]));
-        var continuation = false; // does font change on same line
-        var lineText = gr.EstimateLineWrap(text1, fontList1[fontIndex], availableWidth).toArray();
+        continuation = false; // does font change on same line
+        var lineText = gr.EstimateLineWrap(text1, fontList1[fontIndex], availableWidth);
         for (var i = 0; i < lineText.length; i += 2) {
             textArray.push({text: lineText[i], x_offset: 0, font: fontList1[fontIndex]});
         }
         if (textArray.length <= maxLines) {
             var lastLineWidth = lineText[lineText.length - 1];
-            var secondaryText = gr.EstimateLineWrap(text2, fontList2[fontIndex], availableWidth - lastLineWidth - 5).toArray();
-            firstSecondaryLine = secondaryText[0];
-            textRemainder = text2.substr(firstSecondaryLine.length).trim();
+            var secondaryText = gr.EstimateLineWrap(text2, fontList2[fontIndex], availableWidth - lastLineWidth - 5);
+            let firstSecondaryLine = secondaryText[0];
+            let textRemainder = text2.substr(firstSecondaryLine.length).trim();
             if (firstSecondaryLine.trim().length) {
                 textArray.push({text: firstSecondaryLine, x_offset: lastLineWidth + 5, font: fontList2[fontIndex]});
                 continuation = true; // font changes on same line
             }
-            secondaryText = gr.EstimateLineWrap(textRemainder, fontList2[fontIndex], availableWidth).toArray();
+            secondaryText = gr.EstimateLineWrap(textRemainder, fontList2[fontIndex], availableWidth);
             for (var i = 0; i < secondaryText.length; i += 2) {
                 textArray.push({text: secondaryText[i], x_offset: 0, font: fontList2[fontIndex]});
             }
@@ -197,32 +242,40 @@ function drawMultipleLines(gr, availableWidth, left, top, color, text1, fontList
     return linesDrawn * lineHeight;
 }
 
+/**
+ * Returns the diff between a start and end date in the form of "2y 3m 24d". Order of the two dates does not matter.
+ * @param {string} startingDate
+ * @param {string=} endingDate if no endingDate is supplied, use current time
+ * @returns {string}
+ */
 function dateDiff(startingDate, endingDate) {
-    var hasStartDay = startingDate.length > 7 ? true : false;
+    if (!startingDate) return '';
+    const hasStartDay = startingDate.length > 7 ? true : false;
     if (!hasStartDay) {
         startingDate = startingDate + '-02'; // avoid timezone issues
     }
-    var startDate = new Date(new Date(startingDate).toISOString().substr(0, 10));
+    let startDate = new Date(new Date(startingDate).toISOString().substr(0, 10));
     if (!endingDate) {
-        endingDate = new Date().toISOString().substr(0, 10); // need date in YYYY-MM-DD format
+        const now = new Date().getTime() - timezoneOffset; // subtract timezone offset because we're stripping timzone from ISOString
+        endingDate = new Date(now).toISOString().substr(0, 10); // need date in YYYY-MM-DD format
     }
-    var endDate = new Date(endingDate);
+    let endDate = new Date(endingDate);
     if (startDate > endDate) {
-        var swap = startDate;
+        const swap = startDate;
         startDate = endDate;
         endDate = swap;
     }
-    var startYear = startDate.getFullYear();
-    var february = (startYear % 4 === 0 && startYear % 100 !== 0) || startYear % 400 === 0 ? 29 : 28;
-    var daysInMonth = [31, february, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const startYear = startDate.getFullYear();
+    const februaryDays = (startYear % 4 === 0 && startYear % 100 !== 0) || startYear % 400 === 0 ? 29 : 28;
+    const daysInMonth = [31, februaryDays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-    var yearDiff = endDate.getFullYear() - startYear;
-    var monthDiff = endDate.getMonth() - startDate.getMonth();
+    let yearDiff = endDate.getFullYear() - startYear;
+    let monthDiff = endDate.getMonth() - startDate.getMonth();
+    let dayDiff = 0;
     if (monthDiff < 0) {
         yearDiff--;
         monthDiff += 12;
     }
-    var dayDiff = 0;
     if (hasStartDay) {
         dayDiff = endDate.getDate() - startDate.getDate();
         if (dayDiff < 0) {
@@ -250,10 +303,7 @@ function calcAgeDateString(date) {
         try {
             str = dateDiff($date(date));
         } catch (e) {
-            console.log(e);
-            console.log('date:', date);
-            fail();
-            str = '';
+            throw new ArgumentError('date', date, 'in calcAgeDateString()');
         }
     }
 
@@ -276,8 +326,25 @@ function toDatetime(dateTimeStr) {
     return dateTimeStr.replace(' ', 'T');
 }
 
+var timezoneOffset = 0;
+function updateTimezoneOffset() {
+    // this method is called from on_playback_new_track so we can gracefully handle DST adjustments and the like
+    var temp = new Date();
+    timezoneOffset = temp.getTimezoneOffset() * 60 * 1000;
+}
+
+/**
+ * foobar time strings are already in local time, so converting them to date objects treats
+ * them as UTC time, and again adjusts to local time, and the timezone offset is applied twice.
+ * Therefore we need to add it back in here.
+ * @param {string} dateTimeStr
+ * @returns {number} time value in ms
+ */
 function toTime(dateTimeStr) {
-    return new Date(toDatetime(dateTimeStr)).getTime();
+    if (dateTimeStr === 'N/A') {
+        return undefined;
+    }
+    return new Date(toDatetime(dateTimeStr)).getTime() + timezoneOffset;
 }
 
 function calcAge(date) {
@@ -300,7 +367,7 @@ function toFixed(number, precision) {
 function printColorObj(obj) {
     console.log("\tname: '',\n\tcolors: {");
     for (var propName in obj) {
-        propValue = obj[propName];
+        const propValue = obj[propName];
 
         console.log('\t\t' + propName + ': ' + colToRgb(propValue, true) + ',\t\t// #' + toPaddedHexString(0xffffff & propValue, 6));
     }
@@ -334,21 +401,23 @@ function leftPad(val, size, ch) {
 }
 
 function makeHttpRequest(type, url, successCB) {
+    /** @type {*} */
     var xmlhttp = new ActiveXObject('Microsoft.XMLHTTP');
     xmlhttp.open(type, url, true);
-    xmlhttp.setRequestHeader('User-Agent', 'foo_jscript_panel_georgia');
+    xmlhttp.setRequestHeader('User-Agent', 'foo_spider_monkey_georgia');
     xmlhttp.send();
-    xmlhttp.onreadystatechange = _.bind(function () {
+    xmlhttp.onreadystatechange = () => {
         if (xmlhttp.readyState == 4) {
             successCB(xmlhttp.responseText);
         }
-    }, this);
+    };
 }
 
 // from: https://github.com/substack/semver-compare/issues/1#issuecomment-594765531
+// release must be in form of 2.0.0-beta1, or 2.0.1
 function isNewerVersion(oldVer, newVer) {
-    a = newVer.split('-');
-    b = oldVer.split('-');
+    const a = newVer.split('-');
+    const b = oldVer.split('-');
     var pa = a[0].split('.');
     var pb = b[0].split('.');
     for (var i = 0; i < 3; i++) {
@@ -365,42 +434,74 @@ function isNewerVersion(oldVer, newVer) {
     return !a[1] && b[1] ? true : false;
 }
 
-var menuStartIndex = 100; // can be anything except 0
-function Menu(title) {
-    Menu.itemIndex++;
-    Menu.callbacks;
-    Menu.variables;
-    this.menu = window.CreatePopupMenu();
-    this.title = title;
-    this.systemMenu = false;
-    this.menuManager = null;
+const menuStartIndex = 100; // can be anything except 0
+// SMP does not yet have support for "fields" and so we cannot create static members shared across all classes.
+// We must use these ugly shared globals instead
+let _MenuItemIndex = menuStartIndex;
+let _MenuCallbacks = [];
+let _MenuVariables = [];
 
-    this.initFoobarMenu = function (name) {
+/**
+ * Helper class for creating Menus, submenus, radio groups, toggle items, etc.
+ */
+class Menu {
+    /**
+     * @param {string=} title Title of the menu. If this is the parent menu, should be undefined.
+     */
+    constructor(title = '') {
+        _MenuItemIndex++;
+        this.menu = window.CreatePopupMenu();
+        this.title = title;
+        this.systemMenu = false;
+        this.menuManager = null;
+    }
+
+    /**
+     * Creates default foobar menu corresponding to `name`.
+     * @param {string} name
+     */
+    initFoobarMenu(name) {
         if (name) {
             this.systemMenu = true;
             this.menuManager = fb.CreateMainMenuManager();
             this.menuManager.Init(name);
-            this.menuManager.BuildMenu(this.menu, 1);
+            this.menuManager.BuildMenu(this.menu, 1, 1000);
         }
-    };
+    }
 
-    this.addSeparator = function () {
+    /**
+     * Adds a separator to the menu.
+     */
+    addSeparator() {
         this.menu.AppendMenuSeparator();
-    };
+    }
 
-    this.addItem = function (label, enabled, callback, disabled) {
-        this.addItemWithVariable(label, enabled, undefined, callback, disabled);
-    };
+    /**
+     *
+     * @param {string} label
+     * @param {boolean} checked Should the menu item be checked
+     * @param {Function} callback
+     * @param {boolean=} [disabled=false]
+     */
+    addItem(label, checked, callback, disabled = false) {
+        this.addItemWithVariable(label, checked, undefined, callback, disabled);
+    }
 
-    /** similar to addItem, but takes an object and property name which will automatically be set when the callback is called,
+    /**
+     * Similar to addItem, but takes an object and property name which will automatically be set when the callback is called,
      * before calling any user specified callback. If the property you wish to toggle is options.repeat, then propertiesObj
      * is options, and the propertyName must be "repeat" as a string.
-     **/
-    this.addToggleItem = function (label, propertiesObj, propertyName, callback, disabled) {
+     * @param {string} label
+     * @param {object} propertiesObj An object which contains propertyName
+     * @param {string} propertyName The name of the property to toggle on/off
+     * @param {?Function} callback
+     * @param {?boolean=} [disabled=false]
+     */
+    addToggleItem(label, propertiesObj, propertyName, callback = () => {}, disabled = false) {
         this.addItem(
             label,
             propertiesObj[propertyName],
-            function () {
+            () => {
                 propertiesObj[propertyName] = !propertiesObj[propertyName];
                 if (callback) {
                     callback();
@@ -408,65 +509,98 @@ function Menu(title) {
             },
             disabled
         );
-    };
+    }
 
-    // creates a set of radio items and checks the value specified
-    this.addRadioItems = function (labels, radioValue, variables, callback) {
-        var startIndex = Menu.itemIndex;
+    /**
+     * Creates a set of radio items and checks the value specified
+     * @param {string[]} labels Array of strings which corresponds to each radio item
+     * @param {*} selectedValue Value of the radio item to be checked
+     * @param {*[]} variables Array of values which correspond to each radio entry. `selectedValue` will be checked against these values.
+     * @param {Function} callback
+     */
+    addRadioItems(labels, selectedValue, variables, callback) {
+        var startIndex = _MenuItemIndex;
         var selectedIndex;
         for (var i = 0; i < labels.length; i++) {
-            this.menu.AppendMenuItem(MF_STRING, Menu.itemIndex, labels[i]);
-            Menu.callbacks[Menu.itemIndex] = callback;
-            Menu.variables[Menu.itemIndex] = variables[i];
-            if (radioValue === variables[i]) {
-                selectedIndex = Menu.itemIndex;
+            this.menu.AppendMenuItem(MF_STRING, _MenuItemIndex, labels[i]);
+            _MenuCallbacks[_MenuItemIndex] = callback;
+            _MenuVariables[_MenuItemIndex] = variables[i];
+            if (selectedValue === variables[i]) {
+                selectedIndex = _MenuItemIndex;
             }
-            Menu.itemIndex++;
+            _MenuItemIndex++;
         }
-        this.menu.CheckMenuRadioItem(startIndex, Menu.itemIndex - 1, selectedIndex);
-    };
+        if (selectedIndex) {
+            this.menu.CheckMenuRadioItem(startIndex, _MenuItemIndex - 1, selectedIndex);
+        }
+    }
 
-    this.createRadioSubMenu = function (subMenuName, labels, radioValue, variables, callback) {
+    /**
+     * Creates a submenu consisting of radio items
+     * @param {string} subMenuName
+     * @param {string[]} labels Array of strings which corresponds to each radio item
+     * @param {*} selectedValue Value of the radio item to be checked
+     * @param {*[]} variables Array of values which correspond to each radio entry. `selectedValue` will be checked against these values.
+     * @param {Function} callback
+     * @param {boolean=} [disabled=false]
+     */
+    createRadioSubMenu(subMenuName, labels, selectedValue, variables, callback, disabled = false) {
         var subMenu = new Menu(subMenuName);
-        subMenu.addRadioItems(labels, radioValue, variables, callback);
-        subMenu.appendTo(this);
-    };
+        subMenu.addRadioItems(labels, selectedValue, variables, callback);
+        subMenu.appendTo(this, disabled);
+    }
 
-    this.addItemWithVariable = function (label, enabled, variable, callback, disabled) {
-        this.menu.AppendMenuItem(MF_STRING | disabled ? MF_DISABLED : 0, Menu.itemIndex, label);
-        this.menu.CheckMenuItem(Menu.itemIndex, enabled);
-        Menu.callbacks[Menu.itemIndex] = callback;
+    /**
+     * @param {string} label
+     * @param {boolean} checked Should the menu item be checked
+     * @param {*} variable Variable which will be passed to callback when item is clicked
+     * @param {Function} callback
+     * @param {boolean} disabled
+     */
+    addItemWithVariable(label, checked, variable, callback, disabled) {
+        this.menu.AppendMenuItem(MF_STRING | (disabled ? MF_DISABLED : 0), _MenuItemIndex, label);
+        this.menu.CheckMenuItem(_MenuItemIndex, checked);
+        _MenuCallbacks[_MenuItemIndex] = callback;
         if (typeof variable !== 'undefined') {
-            Menu.variables[Menu.itemIndex] = variable;
+            _MenuVariables[_MenuItemIndex] = variable;
         }
-        Menu.itemIndex++;
-    };
+        _MenuItemIndex++;
+    }
 
-    this.appendTo = function (parentMenu) {
-        this.menu.appendTo(parentMenu.menu, MF_STRING, this.title);
-    };
+    /**
+     * Appends menu to a parent menu
+     * @param {Menu} parentMenu The Menu to append the subMenu to
+     * @param {boolean=} [disabled=false]
+     */
+    appendTo(parentMenu, disabled = false) {
+        this.menu.AppendTo(parentMenu.menu, MF_STRING | (disabled ? MF_DISABLED : 0), this.title);
+    }
 
-    // handles callback and automatically Disposes menu
-    this.doCallback = function (idx) {
-        if (idx > menuStartIndex && Menu.callbacks[idx]) {
-            Menu.callbacks[idx](Menu.variables[idx]);
-        } else if (this.systemMenu) {
-            idx && this.menuManager.ExecuteByID(idx - 1);
-            this.menuManager.Dispose();
+    /**
+     * handles callback and automatically Disposes menu
+     * @param {number} idx Value of the menu item's callback to call. Comes from menu.trackPopupMenu(x, y).
+     */
+    doCallback(idx) {
+        if (idx > menuStartIndex && _MenuCallbacks[idx]) {
+            _MenuCallbacks[idx](_MenuVariables[idx]);
+        } else if (this.systemMenu && idx) {
+            this.menuManager.ExecuteByID(idx - 1);
+            this.menuManager = null;
         }
-        this.menu.Dispose();
-        Menu.callbacks = [];
-        Menu.variables = [];
-        Menu.itemIndex = menuStartIndex;
-    };
+        this.menu = null;
+        // reset globals as menu is about to be destroyed
+        _MenuCallbacks = [];
+        _MenuVariables = [];
+        _MenuItemIndex = menuStartIndex;
+    }
 
-    this.trackPopupMenu = function (x, y) {
+    /**
+     * @return {number} index of the menu item clicked on
+     */
+    trackPopupMenu(x, y) {
         return this.menu.TrackPopupMenu(x, y);
-    };
+    }
 }
-Menu.itemIndex = menuStartIndex; // TODO: in SMP initialize these values inside the class
-Menu.callbacks = [];
-Menu.variables = [];
 
 // setup variables for 4k check
 var sizeInitialized = false;
@@ -486,26 +620,276 @@ function checkFor4k(w, h) {
     }
 }
 
-function scaleForDisplay(number) {
-    return is_4k ? number * 2 : number;
+/**
+ * Scales the value based on 4k mode or not. TODO: Use _.scale() instead of is_4k.
+ * @param {number} val
+ * @return {number}
+ */
+function scaleForDisplay(val) {
+    return is_4k ? val * 2 : val;
 }
 
-try {
-    var DPI = WshShell.RegRead('HKCU\\Control Panel\\Desktop\\WindowMetrics\\AppliedDPI');
-} catch (e) {
-    var DPI = 96;
+const countryCodes = {
+    US: 'United States',
+    GB: 'United Kingdom',
+    AU: 'Australia',
+    DE: 'Germany',
+    FR: 'France',
+    SE: 'Sweden',
+    NO: 'Norway',
+    IT: 'Italy',
+    JP: 'Japan',
+    CN: 'China',
+    FI: 'Finland',
+    KR: 'South Korea',
+    RU: 'Russia',
+    IE: 'Ireland',
+    GR: 'Greece',
+    IS: 'Iceland',
+    IN: 'India',
+    AD: 'Andorra',
+    AE: 'United Arab Emirates',
+    AF: 'Afghanistan',
+    AG: 'Antigua and Barbuda',
+    AI: 'Anguilla',
+    AL: 'Albania',
+    AM: 'Armenia',
+    AO: 'Angola',
+    AQ: 'Antarctica',
+    AR: 'Argentina',
+    AS: 'American Samoa',
+    AT: 'Austria',
+    AW: 'Aruba',
+    AX: 'Åland',
+    AZ: 'Azerbaijan',
+    BA: 'Bosnia and Herzegovina',
+    BB: 'Barbados',
+    BD: 'Bangladesh',
+    BE: 'Belgium',
+    BF: 'Burkina Faso',
+    BG: 'Bulgaria',
+    BH: 'Bahrain',
+    BI: 'Burundi',
+    BJ: 'Benin',
+    BL: 'Saint Barthelemy',
+    BM: 'Bermuda',
+    BN: 'Brunei Darussalam',
+    BO: 'Bolivia',
+    BQ: 'Bonaire, Sint Eustatius and Saba',
+    BR: 'Brazil',
+    BS: 'Bahamas',
+    BT: 'Bhutan',
+    BV: 'Bouvet Island',
+    BW: 'Botswana',
+    BY: 'Belarus',
+    BZ: 'Belize',
+    CA: 'Canada',
+    CC: 'Cocos Keeling Islands',
+    CD: 'Democratic Republic of the Congo',
+    CF: 'Central African Republic',
+    CH: 'Switzerland',
+    CI: "Cote d'Ivoire",
+    CK: 'Cook Islands',
+    CL: 'Chile',
+    CM: 'Cameroon',
+    CO: 'Colombia',
+    CR: 'Costa Rica',
+    CU: 'Cuba',
+    CV: 'Cape Verde',
+    CX: 'Christmas Island',
+    CY: 'Cyprus',
+    CZ: 'Czech Republic',
+    DJ: 'Djibouti',
+    DK: 'Denmark',
+    DM: 'Dominica',
+    DO: 'Dominican Republic',
+    DZ: 'Algeria',
+    EC: 'Ecuador',
+    EE: 'Estonia',
+    EG: 'Egypt',
+    EH: 'Western Sahara',
+    ER: 'Eritrea',
+    ES: 'Spain',
+    ET: 'Ethiopia',
+    FJ: 'Fiji',
+    FK: 'Falkland Islands',
+    FM: 'Micronesia',
+    FO: 'Faroess',
+    GA: 'Gabon',
+    GD: 'Grenada',
+    GE: 'Georgia',
+    GG: 'Guernsey',
+    GH: 'Ghana',
+    GI: 'Gibraltar',
+    GL: 'Greenland',
+    GM: 'Gambia',
+    GN: 'Guinea',
+    GQ: 'Equatorial Guinea',
+    GS: 'South Georgia and the South Sandwich Islands',
+    GT: 'Guatemala',
+    GU: 'Guam',
+    GW: 'Guinea-Bissau',
+    GY: 'Guyana',
+    HK: 'Hong Kong',
+    HN: 'Honduras',
+    HR: 'Croatia',
+    HT: 'Haiti',
+    HU: 'Hungary',
+    ID: 'Indonesia',
+    IL: 'Israel',
+    IM: 'Isle of Man',
+    IQ: 'Iraq',
+    IR: 'Iran',
+    JE: 'Jersey',
+    JM: 'Jamaica',
+    JO: 'Jordan',
+    KE: 'Kenya',
+    KG: 'Kyrgyzstan',
+    KH: 'Cambodia',
+    KI: 'Kiribati',
+    KM: 'Comoros',
+    KN: 'Saint Kitts and Nevis',
+    KP: 'North Korea',
+    KW: 'Kuwait',
+    KY: 'Cayman Islands',
+    KZ: 'Kazakhstan',
+    LA: 'Laos',
+    LB: 'Lebanon',
+    LC: 'Saint Lucia',
+    LI: 'Liechtenstein',
+    LK: 'Sri Lanka',
+    LR: 'Liberia',
+    LS: 'Lesotho',
+    LT: 'Lithuania',
+    LU: 'Luxembourg',
+    LV: 'Latvia',
+    LY: 'Libya',
+    MA: 'Morocco',
+    MC: 'Monaco',
+    MD: 'Moldova',
+    ME: 'Montenegro',
+    MF: 'Saint Martin',
+    MG: 'Madagascar',
+    MH: 'Marshall Islands',
+    MK: 'Macedonia',
+    ML: 'Mali',
+    MM: 'Myanmar',
+    MN: 'Mongolia',
+    MO: 'Macao',
+    MP: 'Northern Mariana Islands',
+    MQ: 'Martinique',
+    MR: 'Mauritania',
+    MS: 'Montserrat',
+    MT: 'Malta',
+    MU: 'Mauritius',
+    MV: 'Maldives',
+    MW: 'Malawi',
+    MX: 'Mexico',
+    MY: 'Malaysia',
+    MZ: 'Mozambique',
+    NA: 'Namibia',
+    NC: 'New Caledonia',
+    NE: 'Niger',
+    NF: 'Norfolk Island',
+    NG: 'Nigeria',
+    NI: 'Nicaragua',
+    NL: 'Netherlands',
+    NP: 'Nepal',
+    NR: 'Nauru',
+    NU: 'Niue',
+    NZ: 'New Zealand',
+    OM: 'Oman',
+    PA: 'Panama',
+    PE: 'Peru',
+    PF: 'French Polynesia',
+    PG: 'Papua New Guinea',
+    PH: 'Philippines',
+    PK: 'Pakistan',
+    PL: 'Poland',
+    PM: 'Saint Pierre and Miquelon',
+    PN: 'Pitcairn',
+    PR: 'Puerto Rico',
+    PS: 'Palestine',
+    PT: 'Portugal',
+    PW: 'Palau',
+    PY: 'Paraguay',
+    QA: 'Qatar',
+    RE: 'Réunion',
+    RO: 'Romania',
+    RS: 'Serbia',
+    RW: 'Rwanda',
+    SA: 'Saudi Arabia',
+    SB: 'Solomon Islands',
+    SC: 'Seychelles',
+    SD: 'Sudan',
+    SG: 'Singapore',
+    SH: 'Saint Helena',
+    SI: 'Slovenia',
+    SJ: 'Svalbard and Jan Mayen',
+    SK: 'Slovakia',
+    SL: 'Sierra Leone',
+    SM: 'San Marino',
+    SN: 'Senegal',
+    SO: 'Somalia',
+    SR: 'Suriname',
+    SS: 'South Sudan',
+    ST: 'Sao Tome and Principe',
+    SV: 'El Salvador',
+    SX: 'Sint Maarten',
+    SY: 'Syrian Arab Republic',
+    SZ: 'Swaziland',
+    TC: 'Turks and Caicos Islands',
+    TD: 'Chad',
+    TF: 'French Southern Territories',
+    TG: 'Togo',
+    TH: 'Thailand',
+    TJ: 'Tajikistan',
+    TK: 'Tokelau',
+    TL: 'Timor-Leste',
+    TM: 'Turkmenistan',
+    TN: 'Tunisia',
+    TO: 'Tonga',
+    TR: 'Turkey',
+    TT: 'Trinidad and Tobago',
+    TV: 'Tuvalu',
+    TW: 'Taiwan',
+    TZ: 'Tanzania',
+    UA: 'Ukraine',
+    UG: 'Uganda',
+    UY: 'Uruguay',
+    UZ: 'Uzbekistan',
+    VA: 'Vatican City',
+    VC: 'Saint Vincent and the Grenadines',
+    VE: 'Venezuela',
+    VI: 'US Virgin Islands',
+    VN: 'Vietnam',
+    VU: 'Vanuatu',
+    WF: 'Wallis and Futuna',
+    WS: 'Samoa',
+    XE: 'European Union', // Musicbrainz code for European releases. Council of Europe uses same flag as EU.
+    XW: 'United Nations', // Musicbrainz code for all World releases. Uses the UN flag which is the MB standard.
+    YE: 'Yemen',
+    YT: 'Mayotte',
+    ZA: 'South Africa',
+    ZM: 'Zambia',
+    ZW: 'Zimbabwe'
+};
+function convertIsoCountryCodeToFull(code) {
+    if (code.length === 2) {
+        return countryCodes[code];
+    }
+    return code;
 }
+
+let DPI = 96;
+try {
+    DPI = WshShell.RegRead('HKCU\\Control Panel\\Desktop\\WindowMetrics\\AppliedDPI');
+} catch (e) {}
 
 _.mixin({
-    isFile: function (file) {
-        return _.isString(file) ? fso.FileExists(file) : false;
-    },
-    isFolder: function (folder) {
-        return _.isString(folder) ? fso.FolderExists(folder) : false;
-    },
     runCmd: function (command, wait, show) {
         try {
-            WshShell.Run(command, show ? 1 : 0, !_.isNil(wait) ? wait : false);
+            WshShell.Run(command, show ? 1 : 0, wait ? wait : false);
             return true;
         } catch (e) {
             return false;
@@ -517,9 +901,9 @@ _.mixin({
     toDb: function (volume) {
         return (50 * Math.log(0.99 * volume + 0.01)) / Math.LN10;
     },
-    tt: function (value, force) {
-        if (g_tooltip.Text !== _.toString(value) || force) {
-            g_tooltip.Text = value;
+    tt: function (text, force) {
+        if (g_tooltip.Text !== text.toString() || force) {
+            g_tooltip.Text = text;
             g_tooltip.Activate();
         }
     },
@@ -538,7 +922,7 @@ _.mixin({
         this.stop = function () {
             tt_timer.force_stop();
         };
-        this.id = Math.ceil(Math.random().toFixed(8) * 1000);
+        this.id = Math.ceil(Math.random() * 10000);
 
         var tt_timer = _.tt_handler.tt_timer;
     }
@@ -555,16 +939,15 @@ _.tt_handler.tt_timer = new (function () {
         if (!tooltip_timer && g_tooltip.Text) {
             _.tt(text, old_caller !== tt_caller);
         } else {
-            this.force_stop(); /// < There can be only one tooltip present at all times, so we can kill the timer w/o any worries
+            if (tooltip_timer) {
+                this.force_stop(); /// < There can be only one tooltip present at all times, so we can kill the timer w/o any worries
+            }
 
             if (!tooltip_timer) {
-                tooltip_timer = window.SetTimeout(
-                    _.bind(function () {
-                        _.tt(text);
-                        tooltip_timer = null;
-                    }, this),
-                    500
-                );
+                tooltip_timer = setTimeout(() => {
+                    _.tt(text);
+                    tooltip_timer = null;
+                }, 300);
             }
         }
     };
@@ -579,8 +962,9 @@ _.tt_handler.tt_timer = new (function () {
     this.force_stop = function () {
         _.tt('');
         if (tooltip_timer) {
-            window.ClearTimeout(tooltip_timer);
+            clearTimeout(tooltip_timer);
             tooltip_timer = null;
+            tt_caller = null;
         }
     };
 })();

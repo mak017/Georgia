@@ -3,48 +3,9 @@
 // @author 'TheQwertiest'
 // ==/PREPROCESSOR==
 
-g_script_list.push('Control_Scrollbar.js');
-
-g_properties.add_properties(
-    {
-        wheel_scroll_page: ['user.scrollbar.wheel_whole_page', false]
-    }
-);
-
-// SCROLLBAR
-// SCROLLBARPARTS
-SBP_ARROWBTN = 1;
-SBP_THUMBBTNHORZ = 2;
-SBP_THUMBBTNVERT = 3;
-SBP_LOWERTRACKHORZ = 4;
-SBP_UPPERTRACKHORZ = 5;
-SBP_LOWERTRACKVERT = 6;
-SBP_UPPERTRACKVERT = 7;
-SBP_GRIPPERHORZ = 8;
-SBP_GRIPPERVERT = 9;
-SBP_SIZEBOX = 10;
-
-// ARROWBTNSTATES
-ABS_UPNORMAL = 1;
-ABS_UPHOT = 2;
-ABS_UPPRESSED = 3;
-ABS_UPDISABLED = 4;
-ABS_DOWNNORMAL = 5;
-ABS_DOWNHOT = 6;
-ABS_DOWNPRESSED = 7;
-ABS_DOWNDISABLED = 8;
-ABS_LEFTNORMAL = 9;
-ABS_LEFTHOT = 10;
-ABS_LEFTPRESSED = 11;
-ABS_LEFTDISABLED = 12;
-ABS_RIGHTNORMAL = 13;
-ABS_RIGHTHOT = 14;
-ABS_RIGHTPRESSED = 15;
-ABS_RIGHTDISABLED = 16;
-ABS_UPHOVER = 17;
-ABS_DOWNHOVER = 18;
-ABS_LEFTHOVER = 19;
-ABS_RIGHTHOVER = 20;
+g_properties.add_properties({
+    wheel_scroll_page: ['user.scrollbar.wheel_whole_page', false]
+});
 
 /** @constructor */
 function ScrollBar(x, y, w, h, row_h, fn_redraw) {
@@ -103,11 +64,11 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
         this.btn_h = this.w;
         // draw info
         this.scrollbar_h = this.h - this.btn_h * 2;
-        this.thumb_h = Math.max(Math.round(this.scrollbar_h * this.rows_drawn / this.row_count), 12);
+        this.thumb_h = Math.max(Math.round((this.scrollbar_h * this.rows_drawn) / this.row_count), 12);
         this.scrollbar_travel = this.scrollbar_h - this.thumb_h;
         // scrolling info
         this.scrollable_lines = this.row_count - this.rows_drawn;
-        this.thumb_y = this.btn_h + this.scroll * this.scrollbar_travel / this.scrollable_lines;
+        this.thumb_y = this.btn_h + (this.scroll * this.scrollbar_travel) / this.scrollable_lines;
         this.drag_distance_per_row = this.scrollbar_travel / this.scrollable_lines;
     };
 
@@ -120,21 +81,27 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
         var h = this.h;
 
         this.sb_parts = {
-            lineUp:   new ScrollBarPart(x, y, w, this.btn_h, scrollbar_images.lineUp),
-            thumb:    new ScrollBarPart(x, y + this.thumb_y, w, this.thumb_h, scrollbar_images.thumb),
+            lineUp: new ScrollBarPart(x, y, w, this.btn_h, scrollbar_images.lineUp),
+            thumb: new ScrollBarPart(x, y + this.thumb_y, w, this.thumb_h, scrollbar_images.thumb),
             lineDown: new ScrollBarPart(x, y + h - this.btn_h, w, this.btn_h, scrollbar_images.lineDown)
         };
     };
 
+    /** @type {number} */ this.desiredScrollPosition = undefined;
+    /** @type {number} */ this.lastScrollPosition = undefined;
     this.wheel = function (wheel_direction) {
         var direction = -wheel_direction;
 
         if (this.wheel_scroll_page) {
             this.shift_page(direction);
-        }
-        else {
+        } else {
             var newScroll = this.nearestScroll(direction);
-            this.scroll_to(newScroll + direction * 2);
+            if (this.desiredWheelScroll === undefined) {
+                this.desiredWheelScroll = newScroll + direction * 2;
+            } else {
+                this.desiredWheelScroll += direction * 2;
+            }
+            this.smooth_scroll_to(this.desiredWheelScroll);
         }
     };
 
@@ -172,8 +139,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
                     this.sb_parts['lineDown'].cs('hot');
                 }
                 alpha_timer.start();
-            }
-            else {
+            } else {
                 if (cur_part_key !== 'lineUp') {
                     this.sb_parts['lineUp'].cs('normal');
                 }
@@ -184,7 +150,8 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
             }
         }
 
-        if (cur_part_key === hover_part_key) {// Nothing to do: same button
+        if (cur_part_key === hover_part_key) {
+            // Nothing to do: same button
             return cur_part_key;
         }
 
@@ -192,8 +159,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
             if (cur_part_key === 'thumb') {
                 this.sb_parts[cur_part_key].cs('normal');
                 alpha_timer.start();
-            }
-            else {
+            } else {
                 if (this.sb_parts[cur_part_key].state === 'pressed') {
                     // Stop btn fast scroll
                     this.stop_shift_timer();
@@ -205,7 +171,8 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
             }
         }
 
-        if (hover_part_key) {// Select current button
+        if (hover_part_key) {
+            // Select current button
             this.sb_parts[hover_part_key].cs('hover');
             alpha_timer.start();
         }
@@ -238,29 +205,26 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
             return;
         }
 
-        this.parts_lbtn_down(p_x, p_y);
+        this.parts_lbtn_down();
 
         var y = p_y - this.y;
 
         if (y < this.btn_h) {
             this.shift_line(-1);
             this.start_shift_timer(-1);
-        }
-        else if (y > this.h - this.btn_h) {
+        } else if (y > this.h - this.btn_h) {
             this.shift_line(1);
             this.start_shift_timer(1);
-        }
-        else if (y < this.thumb_y) {
+        } else if (y < this.thumb_y) {
             this.shift_page(-1);
             timer_stop_y = y;
             this.start_shift_timer(-this.rows_drawn);
-        }
-        else if (y > this.thumb_y + this.thumb_h) {
+        } else if (y > this.thumb_y + this.thumb_h) {
             this.shift_page(1);
             timer_stop_y = y;
             this.start_shift_timer(this.rows_drawn);
-        }
-        else { // on bar
+        } else {
+            // on bar
             this.b_is_dragging = true;
             this.initial_drag_y = y - this.thumb_y;
         }
@@ -283,52 +247,64 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
         this.parts_lbtn_up(x, y);
         if (this.b_is_dragging) {
             this.b_is_dragging = false;
+            this.desiredWheelScroll = undefined;
         }
         this.initial_drag_y = 0;
 
         this.stop_shift_timer();
     };
 
+    this.scroll_to_start = function () {
+        this.smooth_scroll_to(0);
+    };
+
     this.shift_line = function (direction) {
         var newScroll = this.nearestScroll(direction);
-        this.scroll_to(newScroll);
+        this.smooth_scroll_to(newScroll);
     };
 
     this.shift_page = function (direction) {
         var newScroll = this.nearestScroll(direction);
-        this.scroll_to(newScroll + direction * Math.floor(Math.max(this.rows_drawn - 1, 1)));
+        this.smooth_scroll_to(newScroll + direction * Math.floor(Math.max(this.rows_drawn - 1, 1)));
     };
 
     this.scroll_to_end = function () {
-        this.scroll_to(this.scrollable_lines);
+        this.smooth_scroll_to(this.scrollable_lines);
     };
 
-    this.start_shift_timer = function (shift) {
+    /**
+     * This method inserts a delay (8x45ms) when holding the mouse btn down before scrolling starts,
+     * after the first scroll event happens.
+     * @param {number} shift_amount number of rows to shift
+     */
+    this.start_shift_timer = function (shift_amount) {
         if (_.isNil(timer_shift)) {
-            var shift_amount = shift;
             timer_shift_count = 0;
-            timer_shift = setInterval(_.bind(function () {
+            timer_shift = setInterval(() => {
                 if (this.thumb_y <= this.btn_h || this.thumb_y + this.thumb_h >= this.h - this.btn_h) {
                     this.stop_shift_timer();
                     return;
                 }
                 if (timer_stop_y !== -1) {
-                    var new_thumb_y = this.btn_h + (this.scroll + shift) * this.scrollbar_travel / this.scrollable_lines;
+                    var new_thumb_y = this.btn_h + ((this.scroll + shift_amount) * this.scrollbar_travel) / this.scrollable_lines;
 
-                    if ((shift > 0 && new_thumb_y >= timer_stop_y)
-                        || (shift < 0 && new_thumb_y + this.thumb_h <= timer_stop_y)) {
+                    if ((shift_amount > 0 && new_thumb_y >= timer_stop_y) || (shift_amount < 0 && new_thumb_y + this.thumb_h <= timer_stop_y)) {
                         this.stop_shift_timer();
                         return;
                     }
                 }
 
                 if (timer_shift_count > 8) {
-                    this.scroll_to(this.scroll + shift_amount);
-                }
-                else {
+                    if (this.desiredScrollPosition === undefined) {
+                        this.desiredScrollPosition = this.scroll + shift_amount;
+                    } else {
+                        this.desiredScrollPosition += shift_amount;
+                    }
+                    this.smooth_scroll_to(this.desiredScrollPosition);
+                } else {
                     timer_shift_count++;
                 }
-            }, this), 40);
+            }, 45);
         }
     };
 
@@ -347,16 +323,13 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
 
         if (direction < 0 && scrollShift !== 0) {
             newScroll = Math.floor(this.scroll);
-        }
-        else if (direction > 0 && Math.abs(drawnShift - scrollShift) > 0.0001) {
+        } else if (direction > 0 && Math.abs(drawnShift - scrollShift) > 0.0001) {
             if (drawnShift > scrollShift) {
                 newScroll = Math.floor(this.scroll) + drawnShift;
-            }
-            else {
+            } else {
                 newScroll = Math.ceil(this.scroll) + drawnShift;
             }
-        }
-        else {
+        } else {
             newScroll = this.scroll + direction;
         }
 
@@ -364,20 +337,70 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
     };
 
     // TODO: remove after compatibility fixes
-    this.check_scroll = function (new_scroll, set_scroll_only) {
-        this.scroll_to(new_scroll, set_scroll_only);
+    // this.check_scroll = function (new_scroll, set_scroll_only) {
+    //     this.scroll_to(new_scroll, set_scroll_only);
+    // };
+
+    /**
+     * @param {number} x represents the absolute progress of the animation in the bounds of 0 (beginning of the animation) and 1 (end of animation).
+     * @returns {number}
+     */
+    const easeOut = (x) => {
+        return 1 - Math.pow(1 - x, 3); // easeOutCubic
     };
 
-    this.scroll_to = function (new_position, scroll_wo_redraw) {
+    let smoothScrollTimer = null;
+    /**
+     * Scrolls to desired row over 400ms. Can be called repeatedly (during wheel or holding down arrows)
+     * to update desired position.
+     * @param {number} newPosition row position to scroll to
+     * @returns
+     */
+    this.smooth_scroll_to = function (newPosition) {
+        const end = Math.max(0, Math.min(newPosition, this.scrollable_lines));
+        if (end === this.scroll) {
+            return;
+        }
+        clearInterval(smoothScrollTimer);
+        const start = this.scroll;
+        const direction = start - end > 0 ? -1 : 1;
+        let animationProgress = 0; // Percent of animation completion: 0 (start) - 100 (end). Use 100 scale to avoid .009999 issues
+        let timerVal; // local copy of the interval timer because we can have waiting interval callbacks that have fired, but not been executed, and thus can't be clear'd
+        const scrollFunc = (timerVal) => {
+            if (timerVal !== smoothScrollTimer) {
+                clearInterval(timerVal);
+                return; // this timer was canceled
+            }
+            animationProgress += 8; // slow things down slightly from 10
+            let newVal = start + easeOut(animationProgress / 100) * (end - start);
+            if (Math.abs(newPosition - newVal) < 0.1 || (direction === 1 && newVal > newPosition) || (direction === -1 && newVal < newPosition)) {
+                newVal = newPosition;
+                animationProgress = 100; // clear interval
+            }
+            newVal = Math.round(newVal * 100) / 100;
+            // console.log(`${start} + easeOut(${animationProgress}/100) * (${end} - ${start}) = `, newVal)
+            this.scroll_to(newVal, false);
+            if (animationProgress >= 100) {
+                clearInterval(smoothScrollTimer);
+            }
+        };
+        timerVal = setInterval(() => {
+            scrollFunc(timerVal);
+        }, 40);
+        smoothScrollTimer = timerVal;
+        scrollFunc(timerVal); // want to immediately start scroll
+    };
+
+    this.scroll_to = function (new_position, scroll_wo_redraw = false) {
         var s = Math.max(0, Math.min(new_position, this.scrollable_lines));
         if (s === this.scroll) {
             return;
         }
         this.scroll = s;
-        this.thumb_y = this.btn_h + this.scroll * this.scrollbar_travel / this.scrollable_lines;
+        this.thumb_y = this.btn_h + (this.scroll * this.scrollbar_travel) / this.scrollable_lines;
         this.sb_parts['thumb'].y = this.y + this.thumb_y;
 
-        this.is_scrolled_up = (this.scroll === 0);
+        this.is_scrolled_up = this.scroll === 0;
         this.is_scrolled_down = Math.abs(this.scroll - this.scrollable_lines) < 0.0001;
 
         if (!scroll_wo_redraw) {
@@ -393,9 +416,9 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
     };
 
     // private:
-    var throttled_scroll_to = _.throttle(_.bind(function () {
-        this.scroll_to((throttled_scroll_y - this.btn_h) / this.drag_distance_per_row);
-    }, this), 1000 / 60);
+    var throttled_scroll_to = _.throttle(() => {
+        this.smooth_scroll_to((throttled_scroll_y - this.btn_h) / this.drag_distance_per_row);
+    }, 1000 / 60);
 
     function create_scrollbar_images() {
         if (scrollbar_images.length > 0) {
@@ -404,36 +427,23 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
 
         var fontSegoeUi = g_pl_fonts.scrollbar;
 
-        var ico_back_colors =
-            [
-                RGB(37, 37, 37),
-                RGB(170, 172, 174),
-                RGB(90, 92, 94),
-                RGB(140, 142, 144)
-            ];
-        var ico_fore_colors =
-            [
-                RGB(140, 142, 144),
-                RGB(40, 42, 44),
-                RGB(30, 32, 34),
-                RGB(30, 32, 34)
-            ];
+        var ico_back_colors = [RGB(37, 37, 37), RGB(170, 172, 174), RGB(90, 92, 94), RGB(140, 142, 144)];
+        var ico_fore_colors = [RGB(140, 142, 144), RGB(40, 42, 44), RGB(30, 32, 34), RGB(30, 32, 34)];
 
-        var btn =
-            {
-                lineUp:   {
-                    ico:  '\uE010',
-                    font: fontSegoeUi,
-                    w:    that.w,
-                    h:    that.w
-                },
-                lineDown: {
-                    ico:  '\uE011',
-                    font: fontSegoeUi,
-                    w:    that.w,
-                    h:    that.w
-                }
-            };
+        var btn = {
+            lineUp: {
+                ico: '\uE010',
+                font: fontSegoeUi,
+                w: that.w,
+                h: that.w
+            },
+            lineDown: {
+                ico: '\uE011',
+                font: fontSegoeUi,
+                w: that.w,
+                h: that.w
+            }
+        };
 
         scrollbar_images = [];
 
@@ -454,8 +464,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
 
                 if (i === 'lineUp') {
                     grClip.FillSolidRect(m, 0, w - m * 2, h - 1, backColor);
-                }
-                else if (i === 'lineDown') {
+                } else if (i === 'lineDown') {
                     grClip.FillSolidRect(m, 1, w - m * 2, h - 1, backColor);
                 }
 
@@ -465,8 +474,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
                 var btn_format = g_string_format.h_align_center | g_string_format.v_align_far;
                 if (i === 'lineDown') {
                     grClip.DrawString(item.ico, item.font, icoColor, 0, 0, w, h, btn_format);
-                }
-                else if (i === 'lineUp') {
+                } else if (i === 'lineUp') {
                     grClip.DrawString(item.ico, item.font, icoColor, 0, 0, w, h - 1, btn_format);
                 }
 
@@ -474,23 +482,17 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
                 stateImages[s] = img;
             }
 
-            scrollbar_images[i] =
-                {
-                    normal:  stateImages[0],
-                    hover:   stateImages[1],
-                    pressed: stateImages[2],
-                    hot:     stateImages[3]
-                };
+            scrollbar_images[i] = {
+                normal: stateImages[0],
+                hover: stateImages[1],
+                pressed: stateImages[2],
+                hot: stateImages[3]
+            };
         });
     }
 
     function create_dynamic_scrollbar_images(thumb_w, thumb_h) {
-        var thumb_colors =
-            [
-                RGB(110, 112, 114),
-                RGB(170, 172, 174),
-                RGB(90, 92, 94)
-            ];
+        var thumb_colors = [RGB(110, 112, 114), RGB(170, 172, 174), RGB(90, 92, 94)];
 
         var w = thumb_w,
             h = thumb_h;
@@ -509,12 +511,11 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
             stateImages[s] = img;
         }
 
-        scrollbar_images['thumb'] =
-            {
-                normal:  stateImages[0],
-                hover:   stateImages[1],
-                pressed: stateImages[2]
-            };
+        scrollbar_images['thumb'] = {
+            normal: stateImages[0],
+            hover: stateImages[1],
+            pressed: stateImages[2]
+        };
     }
 
     // public:
@@ -531,7 +532,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
 
     this.draw_timer = false;
 
-    this.sb_parts = [];
+    this.sb_parts = {};
 
     // Btns
     this.btn_h = 0;
@@ -559,7 +560,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
     // private:
     var that = this;
 
-    var scrollbar_images = [];
+    var scrollbar_images = {};
 
     var cur_part_key = null;
 
@@ -569,31 +570,30 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
     var timer_shift_count;
     var timer_stop_y = -1;
 
-    var alpha_timer = new function () {
+    var alpha_timer = new (function () {
         this.start = function () {
             var hoverInStep = 50;
             var hoverOutStep = 15;
             var downOutStep = 50;
 
             if (!alpha_timer_internal) {
-                alpha_timer_internal = setInterval(_.bind(function () {
+                alpha_timer_internal = setInterval(() => {
                     _.forEach(that.sb_parts, function (item, i) {
                         switch (item.state) {
                             case 'normal':
-                                item.hover_alpha = Math.max(0, item.hover_alpha -= hoverOutStep);
-                                item.hot_alpha = Math.max(0, item.hot_alpha -= hoverOutStep);
+                                item.hover_alpha = Math.max(0, (item.hover_alpha -= hoverOutStep));
+                                item.hot_alpha = Math.max(0, (item.hot_alpha -= hoverOutStep));
                                 if (i === 'thumb') {
-                                    item.pressed_alpha = Math.max(0, item.pressed_alpha -= hoverOutStep);
-                                }
-                                else {
-                                    item.pressed_alpha = Math.max(0, item.pressed_alpha -= downOutStep);
+                                    item.pressed_alpha = Math.max(0, (item.pressed_alpha -= hoverOutStep));
+                                } else {
+                                    item.pressed_alpha = Math.max(0, (item.pressed_alpha -= downOutStep));
                                 }
 
                                 break;
                             case 'hover':
-                                item.hover_alpha = Math.min(255, item.hover_alpha += hoverInStep);
-                                item.hot_alpha = Math.max(0, item.hot_alpha -= hoverOutStep);
-                                item.pressed_alpha = Math.max(0, item.pressed_alpha -= downOutStep);
+                                item.hover_alpha = Math.min(255, (item.hover_alpha += hoverInStep));
+                                item.hot_alpha = Math.max(0, (item.hot_alpha -= hoverOutStep));
+                                item.pressed_alpha = Math.max(0, (item.pressed_alpha -= downOutStep));
 
                                 break;
                             case 'pressed':
@@ -603,9 +603,9 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
 
                                 break;
                             case 'hot':
-                                item.hover_alpha = Math.max(0, item.hover_alpha -= hoverOutStep);
-                                item.hot_alpha = Math.min(255, item.hot_alpha += hoverInStep);
-                                item.pressed_alpha = Math.max(0, item.pressed_alpha -= downOutStep);
+                                item.hover_alpha = Math.max(0, (item.hover_alpha -= hoverOutStep));
+                                item.hot_alpha = Math.min(255, (item.hot_alpha += hoverInStep));
+                                item.pressed_alpha = Math.max(0, (item.pressed_alpha -= downOutStep));
 
                                 break;
                         }
@@ -616,15 +616,17 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
                     that.repaint();
 
                     var alpha_in_progress = _.some(that.sb_parts, function (item) {
-                        return (item.hover_alpha > 0 && item.hover_alpha < 255)
-                            || (item.pressed_alpha > 0 && item.pressed_alpha < 255)
-                            || (item.hot_alpha > 0 && item.hot_alpha < 255);
+                        return (
+                            (item.hover_alpha > 0 && item.hover_alpha < 255) ||
+                            (item.pressed_alpha > 0 && item.pressed_alpha < 255) ||
+                            (item.hot_alpha > 0 && item.hot_alpha < 255)
+                        );
                     });
 
                     if (!alpha_in_progress) {
                         this.stop();
                     }
-                }, this), 25);
+                }, 25);
             }
         };
 
@@ -636,7 +638,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
         };
 
         var alpha_timer_internal = null;
-    };
+    })();
 
     create_scrollbar_images();
 }
@@ -644,7 +646,7 @@ function ScrollBar(x, y, w, h, row_h, fn_redraw) {
 /** @constructor */
 function ScrollBarPart(x, y, w, h, img_src) {
     this.repaint = function () {
-		window.RepaintRect(this.x, this.y, this.w, this.h);
+        window.RepaintRect(this.x, this.y, this.w, this.h);
     };
 
     this.trace = function (x, y) {

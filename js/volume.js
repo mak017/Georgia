@@ -1,303 +1,296 @@
-_.mixin({
-    /** @constructor */
-    volume: function (x, y, w, h) {
-        this.repaint = function () {
-            var expXY = 3,
-                expWH = expXY * 2;
-            window.RepaintRect(this.x - expXY, this.y - expXY, this.w + expWH, this.h + expWH);
-        };
-        this.volume_change = function () {
-            this.repaint();
-        };
- 
-        this.trace = function (x, y) {
-            var m = this.drag ? 200 : 0;
-            return x > this.x - m && x < this.x + this.w + m && y > this.y - m && y < this.y + this.h + m;
-        };
- 
-        this.wheel = function (s) {
-            if (!this.trace(this.mx, this.my)) {
-                return false;
-            }
- 
-            if (s > 0) {
-                fb.VolumeUp();
-            }
-            else {
-                fb.VolumeDown();
-            }
- 
-            if (this.show_tt) {
-                var text = fb.Volume.toFixed(2) + ' dB';
-                this.tt.showImmediate(text);
-            }
- 
-            return true;
-        };
- 
-        this.move = function (x, y) {
-            this.mx = x;
-            this.my = y;
-            if (this.trace(x, y) || this.drag) {
-                y -= this.y;
-                var pos = y < 0 ? 1 : y > this.h ? 0 : 1 - y / this.h;
-                this.drag_vol = _.toDb(pos);
-                if (this.drag) {
-                    fb.Volume = this.drag_vol;
-                    if (this.show_tt) {
-                        var text = fb.Volume.toFixed(2) + ' dB';
-                        this.tt.showImmediate(text);
-                    }
- 
-                }
- 
-                if (!this.hover) {
-                    this.hover = true;
-                    if (this.show_tt) {
-                        var text = fb.Volume.toFixed(2) + ' dB';
-                        this.tt.showDelayed(text);
-                    }
-                    alpha_timer.start();
-                }
- 
-                return true;
-            }
-            else {
-                if (this.hover) {
-                    this.tt.clear();
- 
-                    this.hover = false;
-                    alpha_timer.start();
-                }
-                this.drag = false;
- 
-                return false;
-            }
-        };
- 
-        this.lbtn_down = function (x, y) {
-            if (this.trace(x, y)) {
-                this.drag = true;
-                return true;
-            }
-            else {
-                return false;
-            }
-        };
- 
-        this.lbtn_up = function (x, y) {
-            if (this.trace(x, y)) {
-                if (this.drag) {
-                    this.drag = false;
-                    fb.Volume = this.drag_vol;
-                }
-                return true;
-            }
-            else {
-                return false;
-            }
-        };
- 
-        this.leave = function () {
-            if (this.drag) {
-                return;
-            }
- 
-            if (this.hover) {
-                this.hover = false;
-                alpha_timer.start();
-            }
-            this.tt.clear();
-            this.drag = false;
-        };
- 
-        this.pos = function (type) {
-            return _.ceil((type === "h" ? this.h : this.w) * (Math.pow(10, fb.Volume / 50) - 0.01) / 0.99);
-        };
- 
+class Volume {
+    constructor(x, y, w, h) {
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.mx = 0;
         this.my = 0;
-        this.hover = false;
-        this.hover_alpha = 0;
+        this.clickX = 0;
+        this.clickY = 0;
         this.drag = false;
         this.drag_vol = 0;
-        this.show_tt = true; //false;
-        this.tt = new _.tt_handler;
- 
-        var that = this;
- 
-        var alpha_timer = new _alpha_timer([that], function (item) {
-            return item.hover;
-        });
+        this.tt = new _.tt_handler();
     }
-});
 
-function VolumeBtn() {
-    this.on_paint = function (gr) {
-           
-            // VolBar
-            if (show_volume_bar) {
-                var p = 3;
-                var x = volume_bar.x,
-                    y = volume_bar.y,
-                    w = volume_bar.w,
-                    h = volume_bar.h;
- 
-                var fillHeight = volume_bar.pos('h');
-                var lineThickness = scaleForDisplay(1);
+    /**
+     * Determines if a point is "inside" the bounds of the volume control.
+     * @param {number} x
+     * @param {number} y
+     */
+    trace(x, y) {
+        // const margin = this.drag ? 200 : 0; // the area the mouse can go outside physical bounds of the volume control
+        const margin = 0; // the area the mouse can go outside physical bounds of the volume control
+        return x > this.x - margin && x < this.x + this.w + margin && y > this.y - margin && y < this.y + this.h + margin;
+    }
 
-                gr.FillSolidRect(x, y + p, w, h, col.bg);
-                gr.FillSolidRect(x, y + p + h - fillHeight, w, fillHeight, col.progress_fill);
-                gr.DrawRect(x, y + p, w, h - lineThickness, lineThickness, col.progress_bar);
-            }
+    /**
+     * @param {number} scrollAmt
+     */
+    wheel(scrollAmt) {
+        if (!this.trace(this.mx, this.my)) {
+            return false;
         }
-   
- 
-    this.on_size = function () {
-        this.w = window.Width;
-        this.h = window.Height;
- 
-        var playback_y = this.h - playback_h;
-        
-        var volume_bar_y = playback_y + Math.floor(playback_h / 2 - volume_bar_w / 2 - 10);
-        volume_bar = new _.volume(volume_bar_x, volume_bar_y, Math.min(this.w - volume_bar_x - 4, volume_bar_h), volume_bar_w);
- 
-    };
 
-    this.set_position = function (x, y, btnWidth) {
-        this.w = window.Width;
-        this.h = window.Height;
-        var center = Math.floor(btnWidth / 2);
+        scrollAmt > 0 ? fb.VolumeUp() : fb.VolumeDown();
 
-        volume_bar_x = x;
-        volume_bar_y = y
-        volume_bar = new _.volume(volume_bar_x + center - volume_bar_w / 2, volume_bar_y + center, volume_bar_w, Math.min(this.h - volume_bar_y - 4, volume_bar_h));        
+        return true;
     }
- 
-    this.on_mouse_move = function (x, y, m) {
+
+    move(x, y) {
+        this.mx = x;
+        this.my = y;
+
+        if (this.clickX && this.clickY && (this.clickX !== x || this.clickY !== y)) {
+            this.drag = true;
+        }
+
+        if (this.trace(x, y) || this.drag) {
+            if (this.drag) {
+                y -= this.y;
+                const maxAreaExtraHeight = 5; // give a little bigger target area to select -0.00dB
+                const pos = y < maxAreaExtraHeight ? 1 : y > this.h ? 0 : 1 - (y - maxAreaExtraHeight) / (this.h - maxAreaExtraHeight);
+                this.drag_vol = _.toDb(pos);
+                fb.Volume = this.drag_vol;
+            }
+
+            return true;
+        } else {
+            this.drag = false;
+
+            return false;
+        }
+    }
+
+    lbtn_down(x, y) {
+        if (this.trace(x, y)) {
+            this.clickX = x;
+            this.clickY = y;
+            this.move(x, y); // force volume to update without needing to move or release lbtn
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    lbtn_up(x, y) {
+        this.clickX = 0;
+        this.clickY = 0;
+        if (this.drag) {
+            this.drag = false;
+            return true;
+        }
+        const inVolumeSlider = this.trace(x, y);
+        if (inVolumeSlider) {
+            // we had not started a drag
+            this.drag = true;
+            this.move(x, y); // adjust volume
+            this.drag = false;
+        }
+        return inVolumeSlider;
+    }
+
+    leave() {
+        this.drag = false;
+    }
+
+    /**
+     * Returns the size in pixels of the fill portion of the volume bar, based on current volume
+     * @param {string} type Either 'h' or 'w' for vertical or horizontal volume bars
+     */
+    fillSize(type) {
+        return _.ceil(((type === 'h' ? this.h : this.w) * (Math.pow(10, fb.Volume / 50) - 0.01)) / 0.99);
+    }
+}
+
+class VolumeBtn {
+    constructor() {
+        this.x = 0;
+        this.y = 0;
+        this.w = scaleForDisplay(28);
+        this.h = scaleForDisplay(180);
+
+        this.inThisPadding = Math.min(this.w / 2);
+        this.volTextW = scaleForDisplay(150);
+        this.volTextH = scaleForDisplay(30);
+
+        // Runtime state
+        this.mouse_in_panel = false;
+        this.show_volume_bar = false;
+
+        // Objects
+        /** @type {Volume} */
+        this.volume_bar = undefined;
+    }
+
+    /**
+     * @param {GdiGraphics} gr
+     */
+    on_paint(gr) {
+        if (this.show_volume_bar) {
+            const x = this.x,
+                y = this.y,
+                w = this.w,
+                h = this.h;
+
+            const fillHeight = this.volume_bar.fillSize('h');
+            const lineThickness = scaleForDisplay(1);
+
+            let fillColor = col.primary;
+            gr.FillSolidRect(x, y, w, h, col.bg);
+            if (colorDistance(col.primary, col.progress_bar) < 105 && pref.darkMode) {
+                fillColor = rgb(255, 255, 255);
+            } else if (colorDistance(col.primary, col.bg) < 105) {
+                fillColor = col.darkAccent;
+            }
+            gr.FillSolidRect(x, y + h - fillHeight, w, fillHeight, fillColor);
+            gr.DrawRect(x, y, w, h - lineThickness, lineThickness, col.progress_bar);
+            const volume = fb.Volume.toFixed(2) + ' dB';
+            const volFont = ft.album_sml;
+            // const volMeasurements = gr.MeasureString(volume, volFont, 0, 0, 0, 0);
+            // const volHeight = volMeasurements.Height;
+            // const volWidth = volMeasurements.Width + 1;
+            let txtY = y;
+            if (transport.displayBelowArtwork) {
+                txtY = this.y - this.h - this.volTextH - scaleForDisplay(2);
+            }
+            gr.DrawString(volume, volFont, rgb(0, 0, 0), x - 1, txtY - 1 + h, this.volTextW, this.volTextH);
+            gr.DrawString(volume, volFont, rgb(0, 0, 0), x - 1, txtY + 1 + h, this.volTextW, this.volTextH);
+            gr.DrawString(volume, volFont, rgb(0, 0, 0), x + 1, txtY - 1 + h, this.volTextW, this.volTextH);
+            gr.DrawString(volume, volFont, rgb(0, 0, 0), x + 1, txtY + 1 + h, this.volTextW, this.volTextH);
+            gr.DrawString(volume, volFont, rgb(255, 255, 255), x, txtY + h, this.volTextW, this.volTextH);
+        }
+    }
+
+    repaint() {
+        const xyPadding = 3,
+            whPadding = xyPadding * 2;
+        window.RepaintRect(this.x - xyPadding, this.volume_bar.y - xyPadding, this.volume_bar.w + whPadding, this.volume_bar.h + whPadding);
+
+        let txtY = this.y + this.h;
+        if (transport.displayBelowArtwork) {
+            txtY = this.y - this.volTextH;
+        }
+        window.RepaintRect(this.x, txtY, this.volTextW, this.volTextH);
+    }
+
+    setPosition(x, y, btnWidth) {
+        const wh = window.Height;
+        this.w = btnWidth - 2;
+        const center = Math.floor(this.w / 2);
+
+        this.x = x;
+        if (transport.displayBelowArtwork) {
+            this.y = y + center - this.h;
+        } else {
+            this.y = y + center + scaleForDisplay(3);
+        }
+        this.volume_bar = new Volume(this.x, this.y, this.w, Math.min(wh - this.y - 4, this.h));
+    }
+
+    on_mouse_move(x, y, m) {
         qwr_utils.DisableSizing(m);
- 
-        if (volume_bar.drag) {
-            volume_bar.move(x, y);
+
+        if (this.volume_bar.drag) {
+            this.volume_bar.move(x, y);
             return;
         }
- 
-        if (show_volume_bar && volume_bar.trace(x, y)) {
-            mouse_in_panel = true;
+
+        if (this.show_volume_bar && this.volume_bar.trace(x, y)) {
+            this.mouse_in_panel = true;
         } else {
-            mouse_in_panel = false;
+            this.mouse_in_panel = false;
         }
- 
-        if (show_volume_bar) {
-            if (x > volume_bar.x - trace_pad && x < volume_bar.x + volume_bar.w + trace_pad && y >= volume_bar.y - trace_pad - 3 && y < volume_bar.y + volume_bar.h + trace_pad) {
-                volume_bar.move(x, y);
-            }
-            else {
+
+        if (this.show_volume_bar) {
+            if (this.mouseInThis(x, y)) {
+                this.volume_bar.move(x, y);
+            } else {
                 this.showVolumeBar(false);
-                volume_bar.show_tt = false;
-                volume_bar.repaint();
+                this.repaint();
             }
         }
- 
-    };
- 
-    this.on_mouse_lbtn_down = function (x, y, m) {
-        if (show_volume_bar) {
-            return volume_bar.lbtn_down(x, y);
+    }
+
+    mouseInThis(x, y) {
+        const padding = this.inThisPadding;
+        if (
+            x > this.x - padding &&
+            x <= this.x + this.w + padding &&
+            y > this.y - this.w && // allow entire button height to be considered
+            y <= this.y + this.h + padding
+        ) {
+            return true;
         }
         return false;
-    };
- 
-    this.on_mouse_lbtn_up = function (x, y, m) {
-        qwr_utils.EnableSizing(m);
- 
-        if (show_volume_bar) {
-            return volume_bar.lbtn_up(x, y);
+    }
+
+    on_mouse_lbtn_down(x, y, m) {
+        if (this.show_volume_bar) {
+            const val = this.volume_bar.lbtn_down(x, y);
+            return val;
         }
-    };
- 
-    this.on_mouse_wheel = function (delta) {
-        if (mouse_in_panel) {
-            if (!show_volume_bar || !volume_bar.wheel(delta)) {
+        return false;
+    }
+
+    on_mouse_lbtn_up(x, y, m) {
+        qwr_utils.EnableSizing(m);
+
+        if (this.show_volume_bar) {
+            return this.volume_bar.lbtn_up(x, y);
+        }
+    }
+
+    on_mouse_wheel(delta) {
+        if (this.mouse_in_panel) {
+            if (!this.show_volume_bar || !this.volume_bar.wheel(delta)) {
                 if (delta > 0) {
                     fb.VolumeUp();
-                }
-                else {
+                } else {
                     fb.VolumeDown();
                 }
             }
             return true;
         }
         return false;
-    };
- 
-    this.on_mouse_leave = function () {
-        if (volume_bar.drag) {
+    }
+
+    on_mouse_leave() {
+        if (!this.volume_bar || this.volume_bar.drag) {
             return;
         }
- 
-        if (mouse_in_panel) {
-            mouse_in_panel = false;
-        }
- 
-        if (show_volume_bar) {
+
+        this.mouse_in_panel = false;
+
+        if (this.show_volume_bar) {
             this.showVolumeBar(false);
-            volume_bar.repaint();
+            this.repaint();
         }
-    };
- 
-    this.on_volume_change = function (val) {
-        if (show_volume_bar) {
-            volume_bar.volume_change();
-        }
-    };
-
-    this.showVolumeBar = function (show) {
-        show_volume_bar = show;
-        volume_bar.repaint();
+        this.volume_bar.leave();
     }
 
-    function initialize() {
-        if (!window.IsVisible) {
-            that.on_size(1, 1);
+    on_volume_change(val) {
+        if (this.show_volume_bar) {
+            this.repaint();
         }
     }
- 
-    this.x = 0;
-    this.y = 0;
-    this.w = 0;
-    this.h = 0;
- 
-    var that = this;
- 
+
     /**
-     * @const
-     * @type {number}
+     * Show the Volume Bar
+     * @param {boolean} show
      */
- 
-    var volume_bar_w = scaleForDisplay(28);
-    var trace_pad = Math.min(volume_bar_w / 2);
-    var volume_bar_h = scaleForDisplay(180);
+    showVolumeBar(show) {
+        this.show_volume_bar = show;
+        this.repaint();
+        if (show) {
+            this.volume_bar.tt.stop();
+        }
+    }
+
     /**
-     * @const
-     * @type {number}
+     * Toggles volume bar on/off
      */
-    var playback_h = 30;
- 
-    // Const after init
-    var volume_bar_x = 0;
- 
-    // Runtime state
-    var mouse_in_panel = false;
-    var show_volume_bar = false;
- 
-    // Objects
-    var volume_bar = undefined;
- 
-    initialize();
-   
+    toggleVolumeBar() {
+        this.showVolumeBar(!this.show_volume_bar);
+    }
 }

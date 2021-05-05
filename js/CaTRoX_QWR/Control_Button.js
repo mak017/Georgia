@@ -1,19 +1,31 @@
-var oldButton, downButton;
+/** @type {Button} */
+let oldButton;
+/** @type {Button} */
+let downButton;
 var buttonTimer = null;
 var mainMenuOpen = false;
 
-var tooltipTimeout = null;
-var lastOverButton = null;
+/** @type {Button} */
+let lastOverButton = null;
 
-var activatedBtns = [];
+/** @type {Button[]} */
+let activatedBtns = [];
+
+const ButtonState = {
+    Default: 0,
+    Hovered: 1,
+    Down: 2, // happens on click
+    Enabled: 3
+};
 
 function buttonEventHandler(x, y, m) {
     // var CtrlKeyPressed = utils.IsKeyPressed(VK_CONTROL);
     // var ShiftKeyPressed = utils.IsKeyPressed(VK_SHIFT);
 
-    var c = caller();
+    var c = qwr_utils.caller();
 
-    var thisButton = null;
+    /** @type {Button} */
+    let thisButton = null;
 
     for (var i in btns) {
         if (typeof btns[i] === 'object' && btns[i].mouseInThis(x, y)) {
@@ -31,35 +43,36 @@ function buttonEventHandler(x, y, m) {
             if (downButton) return;
 
             if (oldButton && oldButton != thisButton) {
-                oldButton.changeState(0);
+                oldButton.changeState(oldButton.enabled ? ButtonState.Enabled : ButtonState.Default);
             }
             if (thisButton && thisButton != oldButton) {
-                thisButton.changeState(1);
+                thisButton.changeState(ButtonState.Hovered);
             }
 
             if (lastOverButton) {
                 if (lastOverButton.tooltip) {
                     tt.showDelayed(lastOverButton.tooltip);
-                } else if (lastOverButton.id === 'Volume') {
+                } else if (lastOverButton.id === 'Volume' && !volume_btn.show_volume_bar) {
                     tt.showDelayed(fb.Volume.toFixed(2) + ' dB');
                 }
             }
 
             oldButton = thisButton;
             break;
+
         case 'on_mouse_lbtn_dblclk':
             if (thisButton) {
-                thisButton.changeState(2);
+                thisButton.changeState(ButtonState.Down);
                 downButton = thisButton;
                 downButton.onDblClick();
             }
             break;
+
         case 'on_mouse_lbtn_down':
             if (thisButton) {
-                thisButton.changeState(2);
+                thisButton.changeState(ButtonState.Down);
                 downButton = thisButton;
             }
-
             break;
 
         case 'on_mouse_lbtn_up':
@@ -70,61 +83,90 @@ function buttonEventHandler(x, y, m) {
                     thisButton = undefined;
                     mainMenuOpen = false;
                 }
-                thisButton ? thisButton.changeState(1) : downButton.changeState(0);
+                if (thisButton) {
+                    thisButton.changeState(thisButton.enabled ? ButtonState.Enabled : ButtonState.Hovered);
+                } else {
+                    downButton.changeState(downButton.enabled ? ButtonState.Enabled : ButtonState.Default);
+                }
+                // thisButton ? thisButton.changeState(ButtonState.Hovered) : downButton.changeState(ButtonState.Default);
 
                 downButton = undefined;
             }
             break;
+
         case 'on_mouse_leave':
             oldButton = undefined;
             if (downButton) return; // for menu buttons
 
             for (var i in btns) {
                 if (btns[i].state != 0) {
-                    btns[i].changeState(0);
+                    btns[i].changeState(ButtonState.Default);
                 }
             }
-
             break;
     }
+    return thisButton !== null;
 }
 
 // =================================================== //
-WindowState = {
+const WindowState = {
     Normal: 0,
     Minimized: 1,
     Maximized: 2
 };
 
-function Button(x, y, w, h, id, img, tip) {
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
-    this.id = id;
-    this.img = img;
-    this.tooltip = typeof tip !== 'undefined' ? tip : '';
-    this.state = 0;
-    this.hoverAlpha = 0;
-    this.downAlpha = 0;
+class Button {
+    constructor(x, y, w, h, id, img, tip = undefined) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.id = id;
+        this.img = img;
+        this.tooltip = typeof tip !== 'undefined' ? tip : '';
+        this.state = 0;
+        this.hoverAlpha = 0;
+        this.downAlpha = 0;
+        this.enabled = false;
+    }
+
+    mouseInThis(x, y) {
+        return this.x <= x && x <= this.x + this.w && this.y <= y && y <= this.y + this.h;
+    }
+
+    set enable(val) {
+        this.enabled = val;
+        if (!val) {
+            this.changeState(ButtonState.Default);
+        } else {
+            this.changeState(ButtonState.Enabled);
+        }
+    }
+
+    repaint() {
+        window.RepaintRect(this.x, this.y, this.w, this.h);
+    }
+
+    changeState(state) {
+        this.state = state;
+        activatedBtns.push(this);
+        buttonAlphaTimer();
+    }
+
+    onClick() {
+        btnActionHandler(this); // really just need id and x, y, w
+    }
+
+    onDblClick() {
+        // we don't do anything with dblClick currently
+    }
 }
-// =================================================== //
-Button.prototype.mouseInThis = function (x, y) {
-    return this.x <= x && x <= this.x + this.w && this.y <= y && y <= this.y + this.h;
-};
-// =================================================== //
-Button.prototype.repaint = function () {
-    window.RepaintRect(this.x, this.y, this.w, this.h);
-};
-// =================================================== //
-Button.prototype.changeState = function (state) {
-    this.state = state;
-    activatedBtns.push(this);
-    buttonAlphaTimer();
-};
-// =================================================== //
-Button.prototype.onClick = function () {
-    switch (this.id) {
+
+/**
+ * @param {Button} btn
+ */
+function btnActionHandler(btn) {
+    switch (btn.id) {
         case 'Stop':
             fb.Stop();
             break;
@@ -141,37 +183,24 @@ Button.prototype.onClick = function () {
             fb.RunMainMenuCommand('Playback/Random');
             break;
         case 'Volume':
-            volume_btn.showVolumeBar(true);
+            volume_btn.toggleVolumeBar();
             break;
         case 'Reload':
-            art_cache.clear();
             window.Reload();
             break;
         case 'Console':
             fb.RunMainMenuCommand('View/Console');
             break;
-        case 'OpenExplorer':
-            if (!safeMode) {
-                try {
-                    WshShell.Run('explorer.exe /e,::{20D04FE0-3AEA-1069-A2D8-08002B30309D}');
-                } catch (e) {
-                    console.log(e);
-                }
-            }
-            break;
         case 'Minimize':
             fb.RunMainMenuCommand('View/Hide');
             break;
         case 'Maximize':
-            try {
-                if (maximizeToFullScreen ? !utils.IsKeyPressed(VK_CONTROL) : utils.IsKeyPressed(VK_CONTROL)) {
-                    UIHacks.FullScreen = !UIHacks.FullScreen;
-                } else {
-                    if (UIHacks.MainWindowState == WindowState.Maximized) UIHacks.MainWindowState = WindowState.Normal;
-                    else UIHacks.MainWindowState = WindowState.Maximized;
-                }
-            } catch (e) {
-                console.log(e + ' Disable WSH safe mode');
+            const maximizeToFullScreen = false; // TODO to clear the error. Test this stuff eventually
+            if (maximizeToFullScreen ? !utils.IsKeyPressed(VK_CONTROL) : utils.IsKeyPressed(VK_CONTROL)) {
+                UIHacks.FullScreen = !UIHacks.FullScreen;
+            } else {
+                if (UIHacks.MainWindowState == WindowState.Maximized) UIHacks.MainWindowState = WindowState.Normal;
+                else UIHacks.MainWindowState = WindowState.Maximized;
             }
             break;
         case 'Close':
@@ -183,40 +212,36 @@ Button.prototype.onClick = function () {
         case 'Playback':
         case 'Library':
         case 'Help':
-            onMainMenu(this.x, this.y + this.h, this.id);
+            onMainMenu(btn.x, btn.y + btn.h, btn.id);
             break;
         case 'Playlists':
-            onPlaylistsMenu(this.x, this.y + this.h);
+            onPlaylistsMenu(btn.x, btn.y + btn.h);
             break;
         case 'Options':
-            onOptionsMenu(this.x, this.y + this.h);
+            onOptionsMenu(btn.x, btn.y + btn.h);
             break;
         case 'Repeat':
             var pbo = fb.PlaybackOrder;
-            if (pbo == playbackOrder.Default) fb.PlaybackOrder = playbackOrder.RepeatPlaylist;
-            else if (pbo == playbackOrder.RepeatPlaylist) fb.PlaybackOrder = playbackOrder.RepeatTrack;
-            else if (pbo == playbackOrder.RepeatTrack) fb.PlaybackOrder = playbackOrder.Default;
-            else fb.PlaybackOrder = playbackOrder.RepeatPlaylist;
+            if (pbo == PlaybackOrder.Default) {
+                fb.PlaybackOrder = PlaybackOrder.RepeatPlaylist;
+            } else if (pbo == PlaybackOrder.RepeatPlaylist) {
+                fb.PlaybackOrder = PlaybackOrder.RepeatTrack;
+            } else if (pbo == PlaybackOrder.RepeatTrack) {
+                fb.PlaybackOrder = PlaybackOrder.Default;
+            } else {
+                fb.PlaybackOrder = PlaybackOrder.RepeatPlaylist;
+            }
             break;
         case 'Shuffle':
             var pbo = fb.PlaybackOrder;
-            if (pbo != playbackOrder.ShuffleTracks) fb.PlaybackOrder = playbackOrder.ShuffleTracks;
-            else fb.PlaybackOrder = playbackOrder.Default;
+            if (pbo != PlaybackOrder.ShuffleTracks) {
+                fb.PlaybackOrder = PlaybackOrder.ShuffleTracks;
+            } else {
+                fb.PlaybackOrder = PlaybackOrder.Default;
+            }
             break;
         case 'Mute':
             fb.VolumeMute();
-            break;
-        case 'Front':
-            coverSwitch(0);
-            break;
-        case 'Back':
-            coverSwitch(1);
-            break;
-        case 'CD':
-            coverSwitch(2);
-            break;
-        case 'Artist':
-            coverSwitch(3);
             break;
         case 'Settings':
             fb.ShowPreferences();
@@ -225,16 +250,18 @@ Button.prototype.onClick = function () {
             fb.RunContextCommand('Properties');
             break;
         case 'Rating':
-            onRatingMenu(this.x, this.y + this.h);
+            onRatingMenu(btn.x, btn.y + btn.h);
             break;
         case 'Lyrics':
             displayLyrics = !displayLyrics;
+            btn.enable = displayLyrics;
             if ((fb.IsPlaying || fb.IsPaused) && albumart_scaled) {
                 if (displayLyrics) {
-                    refresh_lyrics();
+                    initLyrics();
                 }
-                window.RepaintRect(albumart_size.x - 1, albumart_size.y - 1, albumart_scaled.width + 2, albumart_scaled.height + 2);
+                window.RepaintRect(albumart_size.x, albumart_size.y, albumart_size.w, albumart_size.h);
             }
+            btn.repaint();
             break;
         case 'ShowLibrary':
             displayLibrary = !displayLibrary;
@@ -247,10 +274,11 @@ Button.prototype.onClick = function () {
             } else {
                 ResizeArtwork(false);
             }
+            btn.enable = displayLibrary;
+            btns.playlist.enable = false;
             window.Repaint();
             break;
         case 'Playlist':
-            // we appear to be getting album art way too frequently here -- delete this comment and others when verified this is cool
             displayPlaylist = !displayPlaylist;
             if (displayPlaylist) {
                 playlist.on_size(ww, wh);
@@ -260,30 +288,12 @@ Button.prototype.onClick = function () {
             } else {
                 ResizeArtwork(false);
             }
+            btn.enable = displayPlaylist;
+            btns.library.enable = false;
             window.Repaint();
             break;
     }
-};
-// =================================================== //
-
-Button.prototype.onDblClick = function () {
-    // we don't do anything with dblClick currently
-};
-// =================================================== //
-
-function getPlaybackOrder() {
-    var order;
-
-    for (var i in playbackOrder) {
-        if (fb.PlaybackOrder == playbackOrder[i]) {
-            order = i;
-            break;
-        }
-    }
-
-    return order;
 }
-// =================================================== //
 
 function onPlaylistsMenu(x, y) {
     mainMenuOpen = true;
@@ -322,7 +332,6 @@ function onPlaylistsMenu(x, y) {
     for (var i = 0; i != playlistCount; i++) {
         if (id == playlistId + i) plman.ActivePlaylist = i; // playlist switch
     }
-    lists.Dispose();
     menu_down = false;
     return true;
 }
@@ -333,15 +342,15 @@ function onMainMenu(x, y, name) {
     menu_down = true;
 
     if (name) {
-        var menu = new Menu();
+        var menu = new Menu(name);
 
         if (name === 'Help') {
             var statusMenu = new Menu('Georgia Theme Status');
 
             statusMenu.addItem('All fonts installed', fontsInstalled, undefined, true);
-            statusMenu.addItem('Artist logos found', IsFile(pref.logo_hq + 'Metallica.png'), undefined, true);
-            statusMenu.addItem('Record label logos found', IsFile(pref.label_base + 'Republic.png'), undefined, true);
-            statusMenu.addItem('Flag images found', IsFile(pref.flags_base + (is_4k ? '64\\' : '32\\') + 'United-States.png'), undefined, true);
+            statusMenu.addItem('Artist logos found', IsFile(paths.artistlogos + 'Metallica.png'), undefined, true);
+            statusMenu.addItem('Record label logos found', IsFile(paths.labelsBase + 'Republic.png'), undefined, true);
+            statusMenu.addItem('Flag images found', IsFile(paths.flagsBase + (is_4k ? '64\\' : '32\\') + 'United-States.png'), undefined, true);
             statusMenu.addItem('foo_enhanced_playcount installed', componentEnhancedPlaycount, function () {
                 _.runCmd('https://www.foobar2000.org/components/view/foo_enhanced_playcount');
             });
@@ -372,15 +381,10 @@ function onMainMenu(x, y, name) {
 // =================================================== //
 
 function refreshPlayButton() {
-    btns[2].img = fb.IsPlaying ? (fb.IsPaused ? btnImg.Play : btnImg.Pause) : btnImg.Play;
-    btns[2].repaint();
-}
-// =================================================== //
-
-function caller() {
-    var caller = /^function\s+([^(]+)/.exec(arguments.callee.caller.caller);
-    if (caller) return caller[1];
-    else return 0;
+    if (transport.enableTransportControls) {
+        btns.play.img = !fb.IsPlaying || fb.IsPaused ? btnImg.Play : btnImg.Pause;
+        btns.play.repaint();
+    }
 }
 
 // =================================================== //
@@ -394,7 +398,7 @@ function buttonAlphaTimer() {
         buttonTimerDelay = 25;
 
     if (!buttonTimer) {
-        buttonTimer = window.SetInterval(function () {
+        buttonTimer = setInterval(() => {
             for (var i in activatedBtns) {
                 switch (activatedBtns[i].state) {
                     case 0:
@@ -416,7 +420,7 @@ function buttonAlphaTimer() {
             }
 
             //---> Test button alpha values and turn button timer off when it's not required;
-            for (i = activatedBtns.length - 1; i >= 0; i--) {
+            for (let i = activatedBtns.length - 1; i >= 0; i--) {
                 if (
                     (!activatedBtns[i].hoverAlpha && !activatedBtns[i].downAlpha) ||
                     activatedBtns[i].hoverAlpha === 255 ||
@@ -427,7 +431,7 @@ function buttonAlphaTimer() {
             }
 
             if (!activatedBtns.length) {
-                window.ClearInterval(buttonTimer);
+                clearInterval(buttonTimer);
                 buttonTimer = null;
                 trace && console.log('buttonTimerStarted = false');
             }

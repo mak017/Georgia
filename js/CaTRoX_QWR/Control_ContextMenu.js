@@ -1,18 +1,21 @@
 // ==PREPROCESSOR==
-// @name 'Context.Menu Control'
+// @name 'ContextMenu Control'
 // @author 'TheQwertiest'
 // ==/PREPROCESSOR==
 
 g_script_list.push('Control_ContextMenu.js');
 
-/** @namespace */
-var Context = {};
+class ContextBaseObject {
+    /**
+     * @param{string} text_arg
+     */
+    constructor(text_arg) {
+        /** @const {string} */
+        this.text = text_arg;
 
-/**
- * @param{string} text_arg
- * @constructor
- */
-Context.BaseObject = function (text_arg) {
+        /** @type {?number} */
+        this.idx = undefined;
+    }
 
     /**
      * @param{number} start_idx
@@ -20,18 +23,18 @@ Context.BaseObject = function (text_arg) {
      * @protected
      * @abstract
      */
-    this.initialize_menu_idx = function(start_idx) {
-        throw new LogicError("initialize_menu_idx not implemented");
-    };
+    initialize_menu_idx(start_idx) {
+        throw new LogicError('initialize_menu_idx not implemented');
+    }
 
     /**
-     * @param{Context.Menu} parent_menu
+     * @param{ContextMenu} parent_menu
      * @protected
      * @abstract
      */
-    this.initialize_menu = function(parent_menu) {
-        throw new LogicError("initialize_menu not implemented");
-    };
+    initialize_menu(parent_menu) {
+        throw new LogicError('initialize_menu not implemented');
+    }
 
     /**
      * @param{number} idx
@@ -39,64 +42,65 @@ Context.BaseObject = function (text_arg) {
      * @protected
      * @abstract
      * */
-    this.execute_menu = function (idx) {
-        throw new LogicError("execute_menu not implemented");
-    };
+    execute_menu(idx) {
+        throw new LogicError('execute_menu not implemented');
+    }
+}
 
-    // const
+class ContextMenu extends ContextBaseObject {
+    /**
+     * @param {string} text_arg
+     * @param {object} [optional_args={}]
+     * @param {boolean=} [optional_args.is_grayed_out=false]
+     * @param {boolean=} [optional_args.is_checked=false]
+     * @constructor
+     */
+    constructor(text_arg, optional_args) {
+        super(text_arg);
 
-    /** @const{string} */
-    this.text = text_arg;
+        /** @const {boolean} */
+        this.is_grayed_out = !!(optional_args && optional_args.is_grayed_out);
 
-    /** @type{?number} */
-    this.idx = undefined;
-};
+        /** @protected */
+        this.menu_items = [];
 
-/**
- * @param{string} text_arg
- * @param{object=} [optional_args={}]
- * @param{boolean=} [optional_args.is_grayed_out=false]
- * @param{boolean=} [optional_args.is_checked=false]
- * @constructor
- * @extends {Context.BaseObject}
- */
-Context.Menu = function (text_arg, optional_args) {
-    Context.BaseObject.call(this, text_arg);
+        this.cm = window.CreatePopupMenu();
+    }
 
     // public:
 
     /**
-     * @param{Context.BaseObject} item
+     * @param{ContextBaseObject} item
      */
-    this.append = function (item) {
-        if (!_.isInstanceOf(item, Context.BaseObject)) {
-            throw new TypeError('context_item', typeof item, 'instanceof Context.BaseObject');
+    append(item) {
+        if (!(item instanceof ContextBaseObject)) {
+            throw new InvalidTypeError('context_item', typeof item, 'instanceof ContextBaseObject');
         }
 
         this.menu_items.push(item);
-    };
+    }
 
     /**
-     * @param{string} text_arg
-     * @param{function} callback_fn_arg
-     * @param{object=} [optional_args={}]
-     * @param{boolean=} [optional_args.is_grayed_out=false]
-     * @param{boolean=} [optional_args.is_checked=false]
-     * @param{boolean=} [optional_args.is_radio_checked=false]
+     * @param {string} text_arg
+     * @param {function} callback_fn_arg
+     * @param {object} [optional_args={}]
+     * @param {boolean=} [optional_args.is_grayed_out=false]
+     * @param {boolean=} [optional_args.is_checked=false]
+     * @param {boolean=} [optional_args.is_radio_checked=false]
      */
-    this.append_item = function (text_arg, callback_fn_arg, optional_args) {
-        this.append(new Context.Item(text_arg, callback_fn_arg, optional_args));
-    };
+    append_item(text_arg, callback_fn_arg, optional_args) {
+        this.append(new ContextItem(text_arg, callback_fn_arg, optional_args));
+    }
 
-    this.append_separator = function () {
-        this.append(new Context.Separator());
-    };
+    append_separator() {
+        this.append(new ContextSeparator());
+    }
 
     /**
      * @param{number} start_idx
      * @param{number} check_idx
      */
-    this.radio_check = function (start_idx, check_idx) {
+    radio_check(start_idx, check_idx) {
         var item = this.menu_items[start_idx + check_idx];
         if (!item) {
             throw new ArgumentError('check_idx', check_idx, 'Value is out of bounds');
@@ -106,22 +110,21 @@ Context.Menu = function (text_arg, optional_args) {
             throw new ArgumentError('start_idx', start_idx, 'Value is out of bounds');
         }
 
-        if (_.isInstanceOf(item, Context.Separator)) {
+        if (item instanceof ContextSeparator) {
             throw new ArgumentError('check_idx', check_idx, 'Index points to MenuSeparator');
         }
 
-        item.radio_check(true)
-    };
+        item.radio_check(true);
+    }
 
     /**
      * @return {boolean}
      */
-    this.is_empty = function(){
+    is_empty() {
         return _.isEmpty(this.menu_items);
-    };
+    }
 
-    this.dispose = function () {
-        this.cm.Dispose();
+    dispose() {
         this.cm = null;
 
         var items = this.menu_items;
@@ -133,14 +136,14 @@ Context.Menu = function (text_arg, optional_args) {
         }
 
         this.menu_items = null;
-    };
+    }
 
     /**
      * @param{number} start_idx
      * @return{number} end_idx
      * @protected
      */
-    this.initialize_menu_idx = function (start_idx) {
+    initialize_menu_idx(start_idx) {
         var cur_idx = start_idx;
 
         this.idx = cur_idx++;
@@ -152,26 +155,26 @@ Context.Menu = function (text_arg, optional_args) {
         });
 
         return cur_idx;
-    };
+    }
 
     /**
-     * @param{Context.Menu} parent_menu
+     * @param{ContextMenu} parent_menu
      * @protected
      */
-    this.initialize_menu = function (parent_menu) {
-        this.menu_items.forEach(_.bind(function (item) {
+    initialize_menu(parent_menu) {
+        this.menu_items.forEach((item) => {
             item.initialize_menu(this);
-        }, this));
+        });
 
-        this.cm.AppendTo(parent_menu.cm, is_grayed_out ? MF_GRAYED : MF_STRING, this.text);
-    };
+        this.cm.AppendTo(parent_menu.cm, this.is_grayed_out ? MF_GRAYED : MF_STRING, this.text);
+    }
 
     /**
      * @param{number} idx
      * @return{boolean}
      * @protected
      * */
-    this.execute_menu = function (idx) {
+    execute_menu(idx) {
         for (var i = 0; i < this.menu_items.length; ++i) {
             var items = this.menu_items;
             var item = items[i];
@@ -181,50 +184,51 @@ Context.Menu = function (text_arg, optional_args) {
                 return item.execute_menu(idx);
             }
         }
-    };
+    }
+}
 
-    /** @const{boolean} */
-    var is_grayed_out = !!(optional_args && optional_args.is_grayed_out);
+// ContextMenu.prototype = Object.create(ContextBaseObject.prototype);
+// ContextMenu.prototype.constructor = ContextMenu;
 
-    /** @protected */
-    this.menu_items = [];
+class ContextItem extends ContextBaseObject {
+    /**
+     * @param {string} text_arg
+     * @param {function} callback_fn_arg
+     * @param {object} [optional_args={}]
+     * @param {boolean=} [optional_args.is_grayed_out=false]
+     * @param {boolean=} [optional_args.is_checked=false]
+     * @param {boolean=} [optional_args.is_radio_checked=false]
+     * @constructor
+     */
+    constructor(text_arg, callback_fn_arg, optional_args) {
+        super(text_arg);
 
-    /** @protected */
-    this.cm = window.CreatePopupMenu();
-};
+        // const
+        /** @const {function} */
+        this.callback_fn = callback_fn_arg;
 
-Context.Menu.prototype = Object.create(Context.BaseObject.prototype);
-Context.Menu.prototype.constructor = Context.Menu;
+        /** @const {boolean} */
+        this.is_grayed_out = !!(optional_args && optional_args.is_grayed_out);
 
-/**
- * @param{string} text_arg
- * @param{function} callback_fn_arg
- * @param{object=} [optional_args={}]
- * @param{boolean=} [optional_args.is_grayed_out=false]
- * @param{boolean=} [optional_args.is_checked=false]
- * @param{boolean=} [optional_args.is_radio_checked=false]
- * @constructor
- * @extends {Context.BaseObject}
- */
-
-Context.Item = function(text_arg, callback_fn_arg, optional_args) {
-    Context.BaseObject.call(this, text_arg);
+        this.is_checked = !!(optional_args && optional_args.is_checked);
+        this.is_radio_checked = !!(optional_args && optional_args.is_radio_checked);
+    }
 
     // public:
 
     /**
      * @param{boolean} is_checked_arg
      */
-    this.check = function(is_checked_arg) {
-        is_checked = is_checked_arg;
-    };
+    check(is_checked_arg) {
+        this.is_checked = is_checked_arg;
+    }
 
     /**
      * @param{boolean} is_checked_arg
      */
-    this.radio_check = function(is_checked_arg) {
-        is_radio_checked = is_checked_arg;
-    };
+    radio_check(is_checked_arg) {
+        this.is_radio_checked = is_checked_arg;
+    }
 
     // protected:
 
@@ -233,163 +237,151 @@ Context.Item = function(text_arg, callback_fn_arg, optional_args) {
      * @return{number} end_idx
      * @protected
      */
-    this.initialize_menu_idx = function(start_idx) {
+    initialize_menu_idx(start_idx) {
         this.idx = start_idx;
         return this.idx + 1;
-    };
+    }
 
     /**
-     * @param{Context.Menu} parent_menu
+     * @param {ContextMenu} parent_menu
      * @protected
      */
-    this.initialize_menu = function(parent_menu) {
-        parent_menu.cm.AppendMenuItem(is_grayed_out ? MF_GRAYED : MF_STRING, this.idx, this.text);
-        if (is_checked) {
+    initialize_menu(parent_menu) {
+        parent_menu.cm.AppendMenuItem(this.is_grayed_out ? MF_GRAYED : MF_STRING, this.idx, this.text);
+        if (this.is_checked) {
             parent_menu.cm.CheckMenuItem(this.idx, true);
-        }
-        else if (is_radio_checked) {
+        } else if (this.is_radio_checked) {
             parent_menu.cm.CheckMenuRadioItem(this.idx, this.idx, this.idx);
         }
-    };
+    }
 
     /**
      * @param{number} idx
      * @return{boolean}
      * @protected
      */
-    this.execute_menu = function (idx) {
+    execute_menu(idx) {
         if (this.idx !== idx) {
             return false;
         }
 
-        callback_fn();
+        this.callback_fn();
         return true;
-    };
-
-    // const
-
-    /** @const{function} */
-    var callback_fn = callback_fn_arg;
-
-    /** @const{boolean} */
-    var is_grayed_out = !!(optional_args && optional_args.is_grayed_out);
-
-    var is_checked = !!(optional_args && optional_args.is_checked);
-    var is_radio_checked = !!(optional_args && optional_args.is_radio_checked);
-};
-Context.Item.prototype = Object.create(Context.BaseObject.prototype);
-Context.Item.prototype.constructor = Context.Item;
+    }
+}
+// ContextItem.prototype = Object.create(ContextBaseObject.prototype);
+// ContextItem.prototype.constructor = ContextItem;
 
 /**
  * @constructor
- * @extends {Context.BaseObject}
+ * @extends {ContextBaseObject}
  */
-Context.Separator = function () {
-    Context.BaseObject.call(this, '');
+class ContextSeparator extends ContextBaseObject {
+    constructor() {
+        super('');
+    }
 
     /**
      * @param{number} start_idx
      * @return{number} end_idx
      * @protected
      */
-    this.initialize_menu_idx = function(start_idx) {
+    initialize_menu_idx(start_idx) {
         this.idx = start_idx;
         return this.idx + 1;
-    };
+    }
 
     /**
-     * @param{Context.Menu} parent_menu
+     * @param{ContextMenu} parent_menu
      * @protected
      */
-    this.initialize_menu = function(parent_menu) {
+    initialize_menu(parent_menu) {
         parent_menu.cm.AppendMenuSeparator();
-    };
+    }
 
     /**
      * @param{number} idx
      * @return{boolean}
      * @protected
      * */
-    this.execute_menu = function (idx) {
+    execute_menu(idx) {
         return false;
-    };
-};
-Context.Separator.prototype = Object.create(Context.BaseObject.prototype);
-Context.Separator.prototype.constructor = Context.Separator;
+    }
+}
 
 /**
- * @param {IFbMetadbHandleList} metadb_handles_arg
+ * @param {FbMetadbHandleList} metadb_handles_arg
  * @constructor
- * @extends {Context.BaseObject}
+ * @extends {ContextBaseObject}
  */
-Context.FoobarMenu = function (metadb_handles_arg) {
-    Context.BaseObject.call(this, '');
+class ContextFoobarMenu extends ContextBaseObject {
+    constructor(metadb_handles_arg) {
+        super('');
 
-    this.dispose = function() {
-        this.cm.Dispose();
+        /** @private {IContextMenuManager} */
+        this.cm = fb.CreateContextMenuManager();
+
+        this.metadb_handles = metadb_handles_arg;
+    }
+
+    dispose() {
         this.cm = null;
-    };
+    }
 
     /**
-     * @param{number} start_idx
-     * @return{number} end_idx
+     * @param {number} start_idx
+     * @return {number} end_idx
      * @protected
      */
-    this.initialize_menu_idx = function(start_idx) {
+    initialize_menu_idx(start_idx) {
         this.idx = start_idx;
         return this.idx + 5000;
-    };
+    }
 
     /**
-     * @param{Context.Menu} parent_menu
+     * @param {ContextMenu} parent_menu
      * @protected
      */
-    this.initialize_menu = function(parent_menu) {
-        this.cm.InitContext(metadb_handles);
+    initialize_menu(parent_menu) {
+        this.cm.InitContext(this.metadb_handles);
         this.cm.BuildMenu(parent_menu.cm, this.idx);
-    };
+    }
 
     /**
-     * @param{number} idx
-     * @return{boolean}
+     * @param {number} idx
+     * @return {boolean}
      * @protected
      * */
-    this.execute_menu = function (idx) {
-        this.cm.ExecuteByID(idx - this.idx);
-    };
+    execute_menu(idx) {
+        return this.cm.ExecuteByID(idx - this.idx);
+    }
+}
 
-    /** @private{IContextMenuManager} */
-    this.cm = fb.CreateContextMenuManager();
-
-    var metadb_handles = metadb_handles_arg;
-};
-Context.FoobarMenu.prototype = Object.create(Context.BaseObject.prototype);
-Context.FoobarMenu.prototype.constructor = Context.FoobarMenu;
-
-/**
- * @final
- * @constructor
- * @extends {Context.Menu}
- */
-Context.MainMenu = function() {
-    Context.Menu.call(this, '');
+class ContextMainMenu extends ContextMenu {
+    /**
+     * @final
+     * @constructor
+     */
+    constructor() {
+        super('');
+    }
 
     // public:
 
     /** @return{boolean} true, if some item was clicked*/
-    this.execute = function (x, y) {
+    execute(x, y) {
         // Initialize menu
         var cur_idx = 1;
-        this.menu_items.forEach(function(item){
+        this.menu_items.forEach((item) => {
             if (!item.initialize_menu_idx) {
                 return;
             }
             cur_idx = item.initialize_menu_idx(cur_idx);
         });
 
-        this.menu_items.forEach(_.bind(function(item){
+        this.menu_items.forEach((item) => {
             item.initialize_menu(this);
-        },this));
+        });
 
         // Execute menu
         var idx = this.cm.TrackPopupMenu(x, y);
@@ -398,14 +390,12 @@ Context.MainMenu = function() {
         }
 
         return this.execute_menu(idx);
-    };
-};
-Context.MainMenu.prototype = Object.create(Context.Menu.prototype);
-Context.MainMenu.prototype.constructor = Context.MainMenu;
+    }
+}
 
 _.mixin(qwr_utils, {
     /**
-     * @param {Context.Menu} cm
+     * @param {ContextMenu} cm
      */
     append_default_context_menu_to: function (cm) {
         if (!cm) {
@@ -416,54 +406,40 @@ _.mixin(qwr_utils, {
             cm.append_separator();
         }
 
-        cm.append_item(
-            'Console',
-            function () {
-                fb.ShowConsole();
-            });
+        cm.append_item('Console', function () {
+            fb.ShowConsole();
+        });
 
-        cm.append_item(
-            'Restart',
-            function () {
-                fb.RunMainMenuCommand("File/Restart");
-            });
+        cm.append_item('Restart', function () {
+            fb.RunMainMenuCommand('File/Restart');
+        });
 
-        cm.append_item(
-            'Preferences...',
-            function () {
-                fb.RunMainMenuCommand("File/Preferences");
-            });
+        cm.append_item('Preferences...', function () {
+            fb.RunMainMenuCommand('File/Preferences');
+        });
 
         cm.append_separator();
 
-        var edit = new Context.Menu('Edit panel scripts');
+        var edit = new ContextMenu('Edit panel scripts');
         cm.append(edit);
 
         var edit_fn = function (script_path) {
-            if (!_.runCmd("notepad++.exe " + script_path, undefined, true)) {
-                _.runCmd("notepad.exe " + script_path, undefined, true);
+            if (!_.runCmd('notepad++.exe ' + script_path, undefined, true)) {
+                _.runCmd('notepad.exe ' + script_path, undefined, true);
             }
         };
 
         g_script_list.forEach(function (filename) {
             var script_path = g_theme.script_folder + filename;
-            edit.append_item(
-                filename,
-                edit_fn.bind(null, script_path),
-                {is_grayed_out: !_.isFile(script_path)}
-            );
+            edit.append_item(filename, edit_fn.bind(null, script_path), {is_grayed_out: IsFile(script_path)});
         });
 
-        cm.append_item(
-            'Configure panel...',
-            function () {
-                window.ShowConfigure();
-            });
+        cm.append_item('Configure panel...', function () {
+            window.ShowConfigure();
+        });
 
-        cm.append_item(
-            'Panel properties...',
-            function () {
-                window.ShowProperties();
-            });
+        cm.append_item('Panel properties...', function () {
+            window.ShowProperties();
+        });
     }
 });
